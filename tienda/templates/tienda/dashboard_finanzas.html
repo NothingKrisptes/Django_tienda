@@ -1,0 +1,21 @@
+{% extends 'tienda/base.html' %}
+{% block content %}
+<h2>Panel de Control Financiero</h2>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+    <div style="background: #222; padding: 20px;">
+        <h3>Ingresos Totales</h3>
+        <p style="font-size: 2rem; color: #4caf50;">${{ ingresos }}</p>
+    </div>
+    
+    <div style="background: #222; padding: 20px;">
+        <h3>Configuración Fiscal</h3>
+        <p>IVA Actual: <strong>{{ iva_actual }}</strong></p>
+        <form method="post" style="margin-top: 10px;">
+            {% csrf_token %}
+            <label>Nuevo Valor (ej: 0.12):</label>
+            <input type="number" step="0.01" name="nuevo_iva" required style="padding: 5px;">
+            <button type="submit" class="btn-dorado">Actualizar IVA</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

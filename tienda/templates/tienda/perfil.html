@@ -1,0 +1,44 @@
+{% extends 'tienda/base.html' %}
+
+{% block content %}
+<h2>Mi Perfil: {{ user.username }}</h2>
+<div style="background: #222; padding: 20px; border-radius: 5px;">
+    <h3>Historial de Órdenes</h3>
+    {% if ordenes %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Orden #</th>
+                    <th>Fecha</th>
+                    <th>Total Pagado</th>
+                    <th>Estado</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for orden in ordenes %}
+                <tr>
+                    <td>{{ orden.id }}</td>
+                    <td>{{ orden.fechaCompra|date:"d/m/Y H:i" }}</td>
+                    <td>${{ orden.totalFinal }}</td>
+                    <td>
+                        <span style="padding: 2px 5px; border-radius: 3px; background: {% if orden.estadoOrden == 'PAGADO' %}green{% else %}orange{% endif %};">
+                            {{ orden.estadoOrden }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if orden.puedeDevolver and orden.estadoOrden == 'PAGADO' %}
+                            <button style="background: #d9534f; color: white; border: none; cursor: pointer;">Solicitar Devolución</button>
+                        {% else %}
+                            <small style="color: #666;">No disponible</small>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>Aún no has realizado compras.</p>
+    {% endif %}
+</div>
+{% endblock %}

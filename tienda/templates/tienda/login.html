@@ -1,0 +1,19 @@
+{% extends 'tienda/base.html' %}
+
+{% block content %}
+<div style="max-width: 400px; margin: 0 auto; background: #222; padding: 40px; text-align: center;">
+    <h2 style="color: var(--dorado);">Iniciar Sesión</h2>
+    <form method="post">
+        {% csrf_token %}
+        <div style="margin-bottom: 15px; text-align: left;">
+            <label style="display: block; margin-bottom: 5px;">Usuario:</label>
+            {{ form.username }} 
+        </div>
+        <div style="margin-bottom: 20px; text-align: left;">
+            <label style="display: block; margin-bottom: 5px;">Contraseña:</label>
+            {{ form.password }}
+        </div>
+        <button type="submit" class="btn-dorado" style="width: 100%;">ENTRAR</button>
+    </form>
+</div>
+{% endblock %}

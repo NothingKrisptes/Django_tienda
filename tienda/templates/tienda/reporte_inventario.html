@@ -1,0 +1,28 @@
+{% extends 'tienda/base.html' %}
+{% block content %}
+<h2>Gestión de Inventario</h2>
+<table>
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Producto</th>
+            <th>Stock Actual</th>
+            <th>Precio</th>
+            <th>Estado</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in inventario %}
+        <tr>
+            <td>{{ item.id }}</td>
+            <td>{{ item.tituloDisco }}</td>
+            <td style="font-weight: bold; {% if item.stockDisponible < 5 %}color: red;{% else %}color: green;{% endif %}">
+                {{ item.stockDisponible }}
+            </td>
+            <td>${{ item.precioUnitario }}</td>
+            <td>{{ item.aceptaDevolucion|yesno:"Devolución OK,Sin Devolución" }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

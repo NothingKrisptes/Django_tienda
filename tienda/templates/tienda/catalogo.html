@@ -1,0 +1,26 @@
+{% extends 'tienda/base.html' %}
+
+{% block content %}
+<h2>Catálogo Completo</h2>
+<div class="grid-discos">
+    {% for disco in discos %}
+        <div class="card-disco">
+            {% if disco.imagenPortada %}
+                <img src="{{ disco.imagenPortada.url }}" alt="{{ disco.tituloDisco }}">
+            {% else %}
+                <div style="height: 200px; background: #333; display: flex; align-items: center; justify-content: center;">Sin Imagen</div>
+            {% endif %}
+            <h3 style="color: var(--dorado);">{{ disco.tituloDisco }}</h3>
+            <p>{{ disco.artistaPrincipal }}</p>
+            <p style="font-weight: bold;">${{ disco.precioUnitario }}</p>
+            <p style="font-size: 0.8rem; color: #aaa;">Stock: {{ disco.stockDisponible }}</p>
+            
+            {% if disco.stockDisponible > 0 %}
+                <a href="{% url 'agregar_carrito' disco.id %}" class="btn-dorado">AL CARRITO</a>
+            {% else %}
+                <button disabled style="background: #555; border: none; padding: 10px; color: #999;">AGOTADO</button>
+            {% endif %}
+        </div>
+    {% endfor %}
+</div>
+{% endblock %}
