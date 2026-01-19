@@ -1,0 +1,42 @@
+{% extends 'gestion/base.html' %}
+{% block content %}
+<h2>Tu Bolsa de Compras</h2>
+{% if items %}
+    <table>
+        <thead><tr><th>Disco</th><th>Precio</th><th>Cant</th><th>Total</th></tr></thead>
+        <tbody>
+        {% for item in items %}
+            <tr>
+                <td>{{ item.producto.tituloDisco }}</td>
+                <td>${{ item.producto.precioUnitario }}</td>
+                <td>{{ item.cantidad }}</td>
+                <td>${{ item.total }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    
+    <div style="text-align: right; margin-top: 30px; font-size: 1.2rem;">
+        <p>Subtotal: ${{ subtotal }}</p>
+        <p>Descuento: -${{ descuento }}</p>
+        <p>IVA: ${{ impuesto }}</p>
+        <h3 style="color: var(--dorado);">TOTAL A PAGAR: ${{ total }}</h3>
+        
+        <form method="get" style="margin-bottom: 20px;">
+            <input type="text" name="cupon" placeholder="Código Cupón" value="{{ cupon|default:'' }}">
+            <button type="submit" class="btn-dorado">Aplicar</button>
+        </form>
+
+        {% if user.is_authenticated %}
+            <form method="post" action="{% url 'procesar_compra' %}">
+                {% csrf_token %}
+                <button type="submit" class="btn-dorado" style="font-size: 1.2rem;">PAGAR AHORA</button>
+            </form>
+        {% else %}
+            <a href="{% url 'login' %}?next={% url 'carrito' %}" class="btn-dorado">Inicia Sesión para Pagar</a>
+        {% endif %}
+    </div>
+{% else %}
+    <p>Tu carrito está vacío.</p>
+{% endif %}
+{% endblock %}

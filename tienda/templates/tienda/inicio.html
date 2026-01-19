@@ -1,0 +1,28 @@
+{% extends 'tienda/base.html' %}
+
+{% block content %}
+<div style="text-align: center; padding: 50px 0;">
+    <h1 style="font-size: 3rem; margin-bottom: 10px; color: var(--dorado);">VINILOS EL SURCO</h1>
+    <p style="font-size: 1.2rem; color: #ccc;">La mejor selección de música en formato analógico.</p>
+    <a href="{% url 'catalogo' %}" class="btn-dorado" style="display: inline-block; margin-top: 20px;">VER CATÁLOGO COMPLETO</a>
+</div>
+
+<h2 style="border-bottom: 1px solid #333; padding-bottom: 10px;">Novedades</h2>
+<div class="grid-discos">
+    {% for disco in discos %}
+        <div class="card-disco">
+            {% if disco.imagenPortada %}
+                <img src="{{ disco.imagenPortada.url }}" alt="{{ disco.tituloDisco }}">
+            {% else %}
+                <div style="height: 200px; background: #333; display: flex; align-items: center; justify-content: center; color: #555;">Sin Portada</div>
+            {% endif %}
+            <h3 style="margin: 10px 0 5px 0; color: var(--dorado);">{{ disco.tituloDisco }}</h3>
+            <p style="margin: 0; font-size: 0.9rem;">{{ disco.artistaPrincipal }}</p>
+            <p style="font-weight: bold; margin-top: 10px;">${{ disco.precioUnitario }}</p>
+            <a href="{% url 'agregar_carrito' disco.id %}" class="btn-dorado" style="margin-top: 10px; display: block; font-size: 0.8rem;">AÑADIR</a>
+        </div>
+    {% empty %}
+        <p>No hay discos nuevos por el momento.</p>
+    {% endfor %}
+</div>
+{% endblock %}

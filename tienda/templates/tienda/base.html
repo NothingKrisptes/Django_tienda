@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Vinilos El Surco - Edición Digital</title>
+    <style>
+        :root { --negro: #1a1a1a; --dorado: #d4af37; --blanco: #f5f5f5; }
+        body { font-family: 'Helvetica Neue', sans-serif; background: var(--negro); color: var(--blanco); margin: 0; }
+        header { padding: 20px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
+        nav a { color: var(--blanco); text-decoration: none; margin-left: 20px; text-transform: uppercase; font-size: 0.9rem; }
+        .btn-dorado { background: var(--dorado); color: var(--negro); padding: 10px 20px; text-decoration: none; font-weight: bold; border: none; cursor: pointer; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
+        .grid-discos { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 30px; }
+        .card-disco { background: #2a2a2a; padding: 15px; text-align: center; }
+        .card-disco img { max-width: 100%; height: auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { text-align: left; padding: 10px; border-bottom: 1px solid #444; }
+    </style>
+</head>
+<body>
+    <header>
+        <div style="font-size: 1.5rem; font-weight: bold; color: var(--dorado);">EL SURCO <span style="font-size:0.8rem; color: #fff;">Vinilos</span></div>
+        <nav>
+            <a href="{% url 'inicio' %}">Inicio</a>
+            <a href="{% url 'catalogo' %}">Tienda</a>
+            <a href="{% url 'carrito' %}">Carrito</a>
+            {% if user.is_authenticated %}
+                <a href="{% url 'perfil' %}">Mi Perfil</a>
+                <!-- Links de roles -->
+                {% if perms.gestion.change_configuracionfiscal %}<a href="{% url 'finanzas' %}" style="color:var(--dorado)">Finanzas</a>{% endif %}
+            {% else %}
+                <a href="{% url 'login' %}">Iniciar Sesión</a>
+            {% endif %}
+        </nav>
+    </header>
+    
+    <div class="container">
+        {% if messages %}
+            {% for message in messages %}
+                <div style="padding: 10px; background: #333; margin-bottom: 20px; border-left: 4px solid var(--dorado);">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+        
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>
