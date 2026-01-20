@@ -1,25 +1,27 @@
 {% extends 'tienda/base.html' %}
 
 {% block content %}
-<!-- HERO SECTION -->
-<div style="text-align: center; padding: 60px 0; border-bottom: 2px solid var(--secundario); margin-bottom: 40px;">
-    <h1 style="font-size: 3.5rem; margin-bottom: 10px; color: var(--secundario);">VINILOS EL SURCO</h1>
-    <p style="font-size: 1.3rem; color: #666; font-family: 'Playfair Display', serif; font-style: italic;">
+<!-- HERO -->
+<div style="text-align: center; padding: 80px 0; border-bottom: 2px solid var(--secundario); margin-bottom: 50px; background: radial-gradient(circle, #fff 0%, var(--fondo) 100%);">
+    <h1 style="font-size: 4rem; margin: 0 0 15px 0; color: var(--secundario); letter-spacing: -1px;">SDK VINILOS</h1>
+    <p style="font-size: 1.4rem; color: #666; font-family: 'Playfair Display', serif; font-style: italic; max-width: 600px; margin: 0 auto;">
         "La música se ve mejor cuando gira."
     </p>
-    <a href="{% url 'catalogo' %}" class="btn" style="display: inline-block; margin-top: 25px; padding: 15px 30px; font-size: 1.1rem;">
-        VER CATÁLOGO COMPLETO
+    <a href="{% url 'catalogo' %}" class="btn" style="display: inline-block; margin-top: 30px; padding: 15px 35px; font-size: 1.1rem;">
+        EXPLORAR CATÁLOGO
     </a>
 </div>
 
 <!-- NOVEDADES -->
-<h2 style="color: var(--secundario); margin-bottom: 20px;">Últimos Arribos</h2>
+<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 30px;">
+    <h2 style="color: var(--secundario); margin: 0;">Últimos Arribos</h2>
+    <a href="{% url 'catalogo' %}" style="color: var(--acento); text-decoration: none; font-weight: bold;">Ver todo &rarr;</a>
+</div>
 
 <div class="grid-discos">
     {% for disco in discos %}
         <div class="card-disco">
             <div class="card-img-container">
-                <!-- LÓGICA HÍBRIDA -->
                 {% if disco.imagenPortada %}
                     <img src="{{ disco.imagenPortada.url }}" alt="{{ disco.tituloDisco }}">
                 {% elif disco.imagenUrl %}
@@ -34,14 +36,24 @@
             <div class="card-body">
                 <h3 style="font-size: 1.1rem; margin-bottom: 5px;">{{ disco.tituloDisco }}</h3>
                 <p style="margin: 0; font-size: 0.9rem; color: #555;">{{ disco.artistaPrincipal }}</p>
-                <p style="font-weight: bold; margin-top: 10px; color: var(--acento);">${{ disco.precioUnitario }}</p>
-                <a href="{% url 'agregar_carrito' disco.id %}" class="btn" style="margin-top: 5px; font-size: 0.8rem; display: block;">
-                    AÑADIR
+                <p style="font-weight: bold; margin-top: 10px; color: var(--acento); font-size: 1.1rem;">${{ disco.precioUnitario }}</p>
+                
+                <!-- Stock mini -->
+                {% if disco.stockDisponible == 0 %}
+                    <div style="font-size: 0.75rem; color: #d32f2f; font-weight: bold; margin-bottom: 5px;">Agotado</div>
+                {% else %}
+                    <div style="font-size: 0.75rem; color: #555; margin-bottom: 5px;">
+                        Disponibles: <strong>{{ disco.stockDisponible }}</strong>
+                    </div>
+                {% endif %}
+
+                <a href="{% url 'agregar_carrito' disco.id %}" class="btn" style="margin-top: 5px; font-size: 0.8rem; display: block; width: 100%; box-sizing: border-box;">
+                    AÑADIR RÁPIDO
                 </a>
             </div>
         </div>
     {% empty %}
-        <p>No hay discos nuevos por el momento.</p>
+        <p style="text-align: center; color: #999; width: 100%;">Estamos renovando nuestro stock. Vuelve pronto.</p>
     {% endfor %}
 </div>
 {% endblock %}

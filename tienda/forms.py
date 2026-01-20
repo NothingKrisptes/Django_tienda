@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User, Group
-from .models import ViniloMusical
+from .models import ViniloMusical, CuponDescuento
 
 # --- FORMULARIO DE PRODUCTOS (Para Bodega/Admin) ---
 class ViniloForm(forms.ModelForm):
@@ -57,3 +57,17 @@ class CreacionStaffForm(UserCreationForm):
     class Meta:
         model = User
         fields = ['username', 'first_name', 'last_name', 'email']
+
+class CuponForm(forms.ModelForm):
+    class Meta:
+        model = CuponDescuento
+        fields = ['codigoCupon', 'porcentajeDescuento', 'activo']
+        labels = {
+            'codigoCupon': 'Código (Ej: SALE2026)',
+            'porcentajeDescuento': 'Descuento (Ej: 0.10 para 10%)',
+            'activo': '¿Activo?'
+        }
+        widgets = {
+            'codigoCupon': forms.TextInput(attrs={'class': 'form-control', 'style': 'text-transform:uppercase;'}),
+            'porcentajeDescuento': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+        }

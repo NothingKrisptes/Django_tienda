@@ -5,6 +5,8 @@
 
 {% if items %}
     <div style="background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+        
+        <!-- TABLA DE PRODUCTOS -->
         <table style="width: 100%; border-collapse: collapse;">
             <thead>
                 <tr style="border-bottom: 2px solid #eee;">
@@ -18,70 +20,95 @@
             <tbody>
             {% for item in items %}
                 <tr style="border-bottom: 1px solid #eee;">
-                    <!-- MINIATURA -->
-                    <td style="padding: 10px;">
-                        <div style="width: 50px; height: 50px; overflow: hidden; border-radius: 4px; border: 1px solid #ddd;">
+                    <!-- IMAGEN -->
+                    <td style="padding: 10px; width: 80px;">
+                        <div style="width: 60px; height: 60px; overflow: hidden; border-radius: 4px; border: 1px solid #ddd; background: #f9f9f9;">
                             {% if item.producto.imagenPortada %}
                                 <img src="{{ item.producto.imagenPortada.url }}" style="width:100%; height:100%; object-fit:cover;">
                             {% elif item.producto.imagenUrl %}
                                 <img src="{{ item.producto.imagenUrl }}" style="width:100%; height:100%; object-fit:cover;">
                             {% else %}
-                                <div style="background:#eee; width:100%; height:100%;"></div>
+                                <div style="display:flex; align-items:center; justify-content:center; height:100%; color:#ccc; font-size:1.5rem;">♫</div>
                             {% endif %}
                         </div>
                     </td>
+                    
+                    <!-- INFO -->
                     <td style="padding: 15px;">
                         <strong>{{ item.producto.tituloDisco }}</strong><br>
-                        <small>{{ item.producto.artistaPrincipal }}</small>
+                        <small style="color: #666;">{{ item.producto.artistaPrincipal }}</small>
                     </td>
+                    
                     <td style="padding: 15px;">${{ item.producto.precioUnitario }}</td>
                     <td style="padding: 15px; text-align: center;">{{ item.cantidad }}</td>
-                    <td style="padding: 15px; text-align: right; font-weight: bold;">${{ item.total }}</td>
+                    
+                    <!-- TOTAL FILA (Con redondeo) -->
+                    <td style="padding: 15px; text-align: right; font-weight: bold;">
+                        ${{ item.total|floatformat:2 }}
+                    </td>
                 </tr>
             {% endfor %}
             </tbody>
         </table>
         
         <!-- RESUMEN FINANCIERO -->
-        <div style="margin-top: 30px; display: flex; justify-content: flex-end;">
+        <div style="margin-top: 30px; display: flex; flex-direction: column; align-items: flex-end;">
+            
             <div style="width: 300px; text-align: right;">
-                <p style="margin: 5px 0;">Subtotal: <span style="font-weight: bold;">${{ subtotal }}</span></p>
+                <p style="margin: 5px 0;">Subtotal: <strong>${{ subtotal|floatformat:2 }}</strong></p>
+                
                 {% if descuento > 0 %}
-                    <p style="margin: 5px 0; color: green;">Descuento: -${{ descuento }}</p>
+                    <p style="margin: 5px 0; color: #2e7d32;">
+                        Descuento (Cupón): -${{ descuento|floatformat:2 }}
+                    </p>
                 {% endif %}
-                <p style="margin: 5px 0;">IVA: ${{ impuesto }}</p>
-                <div style="font-size: 1.5rem; color: var(--acento); font-weight: bold; margin-top: 15px; border-top: 1px solid #ccc; padding-top: 10px;">
-                    TOTAL: ${{ total }}
-                </div>
-
-                <!-- CUPONES -->
-                <form method="get" style="margin-top: 20px; display: flex; gap: 5px; justify-content: flex-end;">
-                    <input type="text" name="cupon" placeholder="Código Cupón" value="{{ cupon|default:'' }}" style="padding: 8px; width: 120px;">
-                    <button type="submit" class="btn" style="padding: 8px 15px; font-size: 0.8rem;">APLICAR</button>
-                </form>
-
-                <!-- BOTÓN DE PAGO -->
-                <div style="margin-top: 25px;">
-                    {% if user.is_authenticated %}
-                        <form method="post" action="{% url 'procesar_compra' %}">
-                            {% csrf_token %}
-                            <button type="submit" class="btn" style="width: 100%; font-size: 1.1rem; padding: 15px;">
-                                PAGAR AHORA
-                            </button>
-                        </form>
-                    {% else %}
-                        <a href="{% url 'login' %}?next={% url 'carrito' %}" class="btn" style="display: block; text-align: center;">
-                            INICIA SESIÓN PARA PAGAR
-                        </a>
-                    {% endif %}
+                
+                <p style="margin: 5px 0; color: #666;">IVA ({{ iva_porcentaje|default:"15" }}%): ${{ impuesto|floatformat:2 }}</p>
+                
+                <div style="font-size: 1.8rem; color: var(--acento); font-weight: bold; margin-top: 15px; border-top: 2px solid #eee; padding-top: 15px;">
+                    TOTAL: ${{ total|floatformat:2 }}
                 </div>
             </div>
+
+            <!-- SECCIÓN CUPONES -->
+            <form method="get" style="margin-top: 25px; display: flex; gap: 0;">
+                <input type="text" name="cupon" placeholder="Código Cupón" value="{{ cupon|default:'' }}" 
+                       style="padding: 10px; width: 150px; border: 1px solid #ccc; border-radius: 4px 0 0 4px; border-right: none;">
+                <button type="submit" class="btn" style="border-radius: 0 4px 4px 0; padding: 10px 20px;">
+                    APLICAR
+                </button>
+            </form>
+            {% if cupon %}
+                <small style="margin-top: 5px; color: #666;">
+                    Cupón aplicado: <strong>{{ cupon }}</strong> 
+                    <a href="{% url 'carrito' %}" style="color: red; text-decoration: none; margin-left: 5px;">(Quitar)</a>
+                </small>
+            {% endif %}
+
+            <!-- BOTÓN DE PAGO -->
+            <div style="margin-top: 30px; width: 300px;">
+                {% if user.is_authenticated %}
+                    <form method="post" action="{% url 'procesar_compra' %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn" style="width: 100%; font-size: 1.1rem; padding: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                            PAGAR AHORA
+                        </button>
+                    </form>
+                {% else %}
+                    <a href="{% url 'login' %}?next={% url 'carrito' %}" class="btn" style="display: block; text-align: center; background: var(--secundario);">
+                        INICIA SESIÓN PARA PAGAR
+                    </a>
+                {% endif %}
+            </div>
+
         </div>
     </div>
 {% else %}
-    <div style="text-align: center; padding: 50px; background: #fff; border-radius: 8px;">
-        <p style="font-size: 1.2rem; color: #999;">Tu carrito está vacío.</p>
-        <a href="{% url 'catalogo' %}" class="btn" style="margin-top: 20px;">IR A LA TIENDA</a>
+    <div style="text-align: center; padding: 60px; background: #fff; border-radius: 8px;">
+        <div style="font-size: 4rem; margin-bottom: 20px;">🛒</div>
+        <h3 style="color: var(--secundario);">Tu carrito está vacío</h3>
+        <p style="color: #666; margin-bottom: 30px;">Parece que aún no has encontrado el vinilo perfecto.</p>
+        <a href="{% url 'catalogo' %}" class="btn">IR A LA TIENDA</a>
     </div>
 {% endif %}
 {% endblock %}

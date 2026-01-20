@@ -1,14 +1,14 @@
 {% extends 'tienda/base.html' %}
 
 {% block content %}
-<!-- ENCABEZADO Y BOTÓN DE AGREGAR -->
+<!-- ENCABEZADO -->
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; border-bottom: 1px solid #ddd; padding-bottom: 20px;">
     <div>
         <h2 style="margin: 0; color: var(--secundario);">Nuestra Colección</h2>
         <p style="color: #666; margin: 5px 0 0 0;">Explora los sonidos que definieron generaciones.</p>
     </div>
 
-    <!-- Solo visible para Bodega o SuperAdmin -->
+    <!-- BOTÓN SOLO PARA STAFF (BODEGA/ADMIN) -->
     {% if user.is_staff or perms.tienda.add_vinilomusical %}
         <a href="{% url 'agregar_producto' %}" class="btn" style="background: var(--secundario);">
             + NUEVO VINILO
@@ -21,7 +21,7 @@
     {% for disco in discos %}
         <div class="card-disco">
             <div class="card-img-container">
-                <!-- LÓGICA HÍBRIDA DE IMAGEN -->
+                <!-- LÓGICA DE IMAGEN HÍBRIDA -->
                 {% if disco.imagenPortada %}
                     <img src="{{ disco.imagenPortada.url }}" alt="{{ disco.tituloDisco }}">
                 {% elif disco.imagenUrl %}
@@ -39,21 +39,40 @@
                 </h3>
                 <p style="color: #666; font-size: 0.9rem; margin-top: 0;">{{ disco.artistaPrincipal }}</p>
                 
+                <!-- PRECIO -->
                 <div style="font-size: 1.2rem; color: var(--acento); font-weight: bold; margin: 10px 0;">
                     ${{ disco.precioUnitario }}
                 </div>
+
+                <!-- STOCK VISUAL (NUEVO) -->
+                <div style="margin-bottom: 15px; font-size: 0.8rem; min-height: 20px;">
+                    {% if disco.stockDisponible == 0 %}
+                        <span style="color: #d32f2f; font-weight: bold;">❌ Agotado</span>
+                    {% elif disco.stockDisponible < 5 %}
+                        <span style="color: #e65100; font-weight: bold; background: #fff3e0; padding: 2px 5px; border-radius: 4px;">
+                            ⚠️ ¡Solo quedan {{ disco.stockDisponible }}!
+                        </span>
+                    {% else %}
+                        <span style="color: #388e3c; font-weight: bold;">
+                            ✅ Stock: {{ disco.stockDisponible }} Unidades
+                        </span>
+                    {% endif %}
+                </div>
                 
+                <!-- BOTÓN COMPRAR -->
                 {% if disco.stockDisponible > 0 %}
                     <a href="{% url 'agregar_carrito' disco.id %}" class="btn" style="width: 100%; box-sizing: border-box;">
                         AGREGAR AL CARRITO
                     </a>
                 {% else %}
-                    <button disabled class="btn" style="width: 100%; background: #ccc; cursor: not-allowed;">
+                    <button disabled class="btn" style="width: 100%; background: #e0e0e0; color: #999; cursor: not-allowed;">
                         AGOTADO
                     </button>
                 {% endif %}
             </div>
         </div>
+    {% empty %}
+        <p style="text-align: center; width: 100%;">No hay productos disponibles por el momento.</p>
     {% endfor %}
 </div>
 {% endblock %}

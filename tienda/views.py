@@ -8,7 +8,7 @@ from django.contrib.auth import login
 from .models import ViniloMusical, OrdenVenta, DetalleOrden, CuponDescuento, ConfiguracionFiscal, LogAuditoria
 from .services.gestorFinanciero import GestorFinanciero
 from .services.logger import registrarLog # <--- IMPORTANTE: El servicio de logs
-from .forms import ViniloForm, RegistroClienteForm, CreacionStaffForm
+from .forms import ViniloForm, RegistroClienteForm, CreacionStaffForm, CuponForm
 
 # --- HELPERS DE SEGURIDAD (ROLES) ---
 def esFinanzas(user): return user.is_superuser or user.groups.filter(name='Finanzas').exists()
@@ -159,24 +159,39 @@ def vistaPerfil(request):
 
 @user_passes_test(esFinanzas)
 def dashboardFinanzas(request):
-    if request.method == "POST":
-        nuevoIva = request.POST.get('nuevo_iva')
-        config = ConfiguracionFiscal.objects.first() or ConfiguracionFiscal()
-        ivaAnterior = config.valorIva # Guardamos para el log
-        config.valorIva = float(nuevoIva)
-        config.save()
-        
-        # [LOG] Cambio crítico financiero
-        registrarLog(request.user, f"Cambió Tasa IVA de {ivaAnterior} a {nuevoIva}")
-        
-        messages.success(request, "Tasa de IVA actualizada correctamente")
+    # Inicializamos forms
+    form_cupon = CuponForm()
     
+    if request.method == "POST":
+        # Opción A: Cambiar IVA
+        if 'btn_iva' in request.POST:
+            nuevoIva = request.POST.get('nuevo_iva')
+            config = ConfiguracionFiscal.objects.first() or ConfiguracionFiscal()
+            ivaAnterior = config.valorIva
+            config.valorIva = float(nuevoIva)
+            config.save()
+            registrarLog(request.user, f"Cambió Tasa IVA de {ivaAnterior} a {nuevoIva}")
+            messages.success(request, "Tasa de IVA actualizada")
+
+        # Opción B: Crear Cupón
+        elif 'btn_cupon' in request.POST:
+            form_cupon = CuponForm(request.POST)
+            if form_cupon.is_valid():
+                cupon = form_cupon.save()
+                registrarLog(request.user, f"Creó cupón: {cupon.codigoCupon} ({cupon.porcentajeDescuento})")
+                messages.success(request, f"Cupón {cupon.codigoCupon} creado exitosamente")
+                return redirect('finanzas')
+
     ingresosTotales = sum(o.totalFinal for o in OrdenVenta.objects.filter(estadoOrden='PAGADO'))
     configFiscal = ConfiguracionFiscal.obtenerIvaActual()
+    # Listamos cupones existentes
+    cupones = CuponDescuento.objects.all().order_by('-id')
     
     return render(request, 'tienda/dashboard_finanzas.html', {
         'ingresos': ingresosTotales,
-        'iva_actual': configFiscal
+        'iva_actual': configFiscal,
+        'form_cupon': form_cupon,
+        'cupones': cupones
     })
 
 @user_passes_test(esBodeguero)
@@ -292,3 +307,13 @@ def solicitarDevolucion(request, orden_id):
     registrarLog(request.user, f"Devolución procesada Orden #{orden.id}")
     messages.success(request, "Devolución aceptada. El stock ha sido restaurado.")
     return redirect('perfil')
+
+@user_passes_test(esFinanzas)
+def crearCupon(request):
+    if request.method == 'POST':
+        form = CuponForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Cupón creado exitosamente")
+            return redirect('finanzas')
+    return redirect('finanzas') # O renderizar un template si prefieres
