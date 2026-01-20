@@ -1,44 +1,70 @@
 {% extends 'tienda/base.html' %}
 
 {% block content %}
-<h2>Mi Perfil: {{ user.username }}</h2>
-<div style="background: #222; padding: 20px; border-radius: 5px;">
-    <h3>Historial de Órdenes</h3>
-    {% if ordenes %}
-        <table>
-            <thead>
-                <tr>
-                    <th>Orden #</th>
-                    <th>Fecha</th>
-                    <th>Total Pagado</th>
-                    <th>Estado</th>
-                    <th>Acción</th>
-                </tr>
-            </thead>
-            <tbody>
+<h2 style="border-bottom: 2px solid var(--secundario); padding-bottom: 15px; margin-bottom: 30px;">Mi Cuenta</h2>
+
+<div style="display: grid; grid-template-columns: 1fr 2fr; gap: 40px;">
+    
+    <!-- COLUMNA IZQUIERDA: DATOS PERSONALES -->
+    <div style="background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); height: fit-content;">
+        <h3 style="color: var(--secundario); margin-top: 0;">Mis Datos</h3>
+        <form method="post">
+            {% csrf_token %}
+            <div style="margin-bottom: 15px;">
+                <label style="font-weight: bold; display: block; font-size: 0.9rem;">Usuario</label>
+                <input type="text" value="{{ user.username }}" disabled style="background: #eee; cursor: not-allowed;">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="font-weight: bold; display: block; font-size: 0.9rem;">Nombre</label>
+                <input type="text" name="nombre" value="{{ user.first_name }}">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="font-weight: bold; display: block; font-size: 0.9rem;">Apellido</label>
+                <input type="text" name="apellido" value="{{ user.last_name }}">
+            </div>
+            <div style="margin-bottom: 20px;">
+                <label style="font-weight: bold; display: block; font-size: 0.9rem;">Email</label>
+                <input type="email" name="email" value="{{ user.email }}">
+            </div>
+            <button type="submit" class="btn" style="width: 100%;">GUARDAR CAMBIOS</button>
+        </form>
+    </div>
+
+    <!-- COLUMNA DERECHA: HISTORIAL -->
+    <div>
+        <h3 style="color: var(--secundario); margin-top: 0;">Mis Pedidos</h3>
+        {% if ordenes %}
             {% for orden in ordenes %}
-                <tr>
-                    <td>{{ orden.id }}</td>
-                    <td>{{ orden.fechaCompra|date:"d/m/Y H:i" }}</td>
-                    <td>${{ orden.totalFinal }}</td>
-                    <td>
-                        <span style="padding: 2px 5px; border-radius: 3px; background: {% if orden.estadoOrden == 'PAGADO' %}green{% else %}orange{% endif %};">
-                            {{ orden.estadoOrden }}
-                        </span>
-                    </td>
-                    <td>
-                        {% if orden.puedeDevolver and orden.estadoOrden == 'PAGADO' %}
-                            <button style="background: #d9534f; color: white; border: none; cursor: pointer;">Solicitar Devolución</button>
-                        {% else %}
-                            <small style="color: #666;">No disponible</small>
-                        {% endif %}
-                    </td>
-                </tr>
+            <div style="background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #eee;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;">
+                    <div>
+                        <strong>Orden #{{ orden.id }}</strong><br>
+                        <small style="color: #999;">{{ orden.fechaCompra|date:"d M Y, H:i" }}</small>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="font-weight: bold; font-size: 1.2rem;">${{ orden.totalFinal }}</span><br>
+                        <span style="background: #e8f5e9; color: green; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem;">{{ orden.estadoOrden }}</span>
+                    </div>
+                </div>
+                
+                <!-- Detalles ocultos/simples -->
+                <div style="font-size: 0.9rem; color: #555;">
+                    {% for detalle in orden.detalles.all %}
+                        <div>• {{ detalle.cantidad }}x {{ detalle.producto.tituloDisco }}</div>
+                    {% endfor %}
+                </div>
+                
+                <div style="margin-top: 15px; text-align: right;">
+                    <a href="#" style="color: var(--acento); font-size: 0.9rem; text-decoration: none;">📄 Descargar Factura (Simulado)</a>
+                </div>
+            </div>
             {% endfor %}
-            </tbody>
-        </table>
-    {% else %}
-        <p>Aún no has realizado compras.</p>
-    {% endif %}
+        {% else %}
+            <div style="background: #fff; padding: 40px; text-align: center; border-radius: 8px;">
+                <p style="color: #999;">Aún no tienes pedidos.</p>
+                <a href="{% url 'catalogo' %}" class="btn">IR A LA TIENDA</a>
+            </div>
+        {% endif %}
+    </div>
 </div>
 {% endblock %}

@@ -79,3 +79,10 @@ class DetalleOrden(models.Model):
     
     def subtotalLinea(self):
         return self.cantidad * self.precioUnitarioHistorico
+
+class LogAuditoria(models.Model):
+    usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    accion = models.CharField(max_length=255)
+    fecha = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self): return f"{self.usuario} - {self.accion}"

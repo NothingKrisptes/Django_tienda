@@ -1,19 +1,38 @@
 {% extends 'tienda/base.html' %}
 
 {% block content %}
-<div style="max-width: 400px; margin: 0 auto; background: #222; padding: 40px; text-align: center;">
-    <h2 style="color: var(--dorado);">Iniciar Sesión</h2>
+<div style="max-width: 400px; margin: 60px auto; background: #fff; padding: 40px; border-radius: 4px; border: 1px solid var(--borde); box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
+    
+    <div style="text-align: center; margin-bottom: 30px;">
+        <h2 style="color: var(--secundario); font-family: 'Playfair Display', serif; margin: 0;">Bienvenido</h2>
+        <p style="color: #888; font-size: 0.9rem; margin-top: 5px;">Ingresa tus credenciales para continuar</p>
+    </div>
+    
     <form method="post">
         {% csrf_token %}
-        <div style="margin-bottom: 15px; text-align: left;">
-            <label style="display: block; margin-bottom: 5px;">Usuario:</label>
+        
+        {% if form.errors %}
+            <div style="background: #fdecea; color: #c62828; padding: 10px; border-radius: 4px; margin-bottom: 20px; font-size: 0.9rem; text-align: center;">
+                Usuario o contraseña incorrectos.
+            </div>
+        {% endif %}
+
+        <div style="margin-bottom: 20px;">
+            <label style="font-weight: bold; display: block; margin-bottom: 5px; color: var(--secundario);">Usuario</label>
             {{ form.username }} 
+            <!-- Django renderiza el input automáticamente aquí -->
         </div>
-        <div style="margin-bottom: 20px; text-align: left;">
-            <label style="display: block; margin-bottom: 5px;">Contraseña:</label>
+        
+        <div style="margin-bottom: 25px;">
+            <label style="font-weight: bold; display: block; margin-bottom: 5px; color: var(--secundario);">Contraseña</label>
             {{ form.password }}
         </div>
-        <button type="submit" class="btn-dorado" style="width: 100%;">ENTRAR</button>
+
+        <button type="submit" class="btn" style="width: 100%; padding: 12px; font-size: 1rem;">ENTRAR</button>
     </form>
+
+    <div style="text-align: center; margin-top: 30px;">
+        <a href="{% url 'registro' %}" style="color: var(--secundario); text-decoration: underline; font-size: 0.9rem;">¿No tienes cuenta? Regístrate gratis</a>
+    </div>
 </div>
 {% endblock %}

@@ -1,0 +1,26 @@
+{% extends 'tienda/base.html' %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 0 auto; background: #fff; border: 2px solid var(--secundario); padding: 40px; border-radius: 8px;">
+    <h2 style="text-align: center; color: var(--secundario);">Panel de Recursos Humanos</h2>
+    <p style="text-align: center; background: #ffebee; color: #c62828; padding: 10px;">
+        ⚠ ZONA RESTRINGIDA: Creación de Personal Interno
+    </p>
+
+    <form method="post">
+        {% csrf_token %}
+        
+        {% for field in form %}
+            <div style="margin-bottom: 20px;">
+                <label style="font-weight: bold; display: block; margin-bottom: 5px;">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}
+                    <div style="color: red; font-size: 0.8rem;">{{ field.errors }}</div>
+                {% endif %}
+            </div>
+        {% endfor %}
+
+        <button type="submit" class="btn" style="width: 100%; background: var(--secundario);">CREAR EMPLEADO</button>
+    </form>
+</div>
+{% endblock %}

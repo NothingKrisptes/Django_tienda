@@ -1,28 +1,61 @@
 {% extends 'tienda/base.html' %}
+
 {% block content %}
-<h2>Gestión de Inventario</h2>
-<table>
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Producto</th>
-            <th>Stock Actual</th>
-            <th>Precio</th>
-            <th>Estado</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for item in inventario %}
-        <tr>
-            <td>{{ item.id }}</td>
-            <td>{{ item.tituloDisco }}</td>
-            <td style="font-weight: bold; {% if item.stockDisponible < 5 %}color: red;{% else %}color: green;{% endif %}">
-                {{ item.stockDisponible }}
-            </td>
-            <td>${{ item.precioUnitario }}</td>
-            <td>{{ item.aceptaDevolucion|yesno:"Devolución OK,Sin Devolución" }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 2px solid var(--secundario); padding-bottom: 20px;">
+    <h2 style="margin: 0;">Gestión de Inventario</h2>
+    <!-- BOTÓN CLAVE PARA AGREGAR -->
+    <a href="{% url 'agregar_producto' %}" class="btn">
+        + NUEVO PRODUCTO
+    </a>
+</div>
+
+<div style="background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+    <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="background: var(--secundario); color: #fff;">
+                <th style="padding: 15px;">ID</th>
+                <th style="padding: 15px;">Producto</th>
+                <th style="padding: 15px;">Categoría</th>
+                <th style="padding: 15px;">Stock</th>
+                <th style="padding: 15px;">Precio</th>
+                <th style="padding: 15px;">Estado</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in inventario %}
+            <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 15px;">{{ item.id }}</td>
+                <td style="padding: 15px;">
+                    <strong>{{ item.tituloDisco }}</strong><br>
+                    <small style="color: #666;">{{ item.artistaPrincipal }}</small>
+                </td>
+                <td style="padding: 15px;">{{ item.categoria|default:"Sin Categoría" }}</td>
+                <td style="padding: 15px;">
+                    {% if item.stockDisponible == 0 %}
+                        <span style="color: red; font-weight: bold;">AGOTADO</span>
+                    {% elif item.stockDisponible < 5 %}
+                        <span style="color: orange; font-weight: bold;">Bajo ({{ item.stockDisponible }})</span>
+                    {% else %}
+                        <span style="color: green;">{{ item.stockDisponible }} Unidades</span>
+                    {% endif %}
+                </td>
+                <td style="padding: 15px;">${{ item.precioUnitario }}</td>
+                <td style="padding: 15px;">
+                    {% if item.aceptaDevolucion %}
+                        <span style="background: #e8f5e9; color: #2e7d32; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">Devolución OK</span>
+                    {% else %}
+                        <span style="background: #ffebee; color: #c62828; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">Venta Final</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" style="padding: 40px; text-align: center; color: #999;">
+                    No hay productos en inventario. ¡Agrega el primero!
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 {% endblock %}

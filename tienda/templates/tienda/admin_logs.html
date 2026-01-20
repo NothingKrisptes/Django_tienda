@@ -1,0 +1,47 @@
+{% extends 'tienda/base.html' %}
+
+{% block content %}
+<h2 style="border-bottom: 2px solid var(--secundario); padding-bottom: 15px; margin-bottom: 30px;">
+    Registro de Auditoría (Logs)
+</h2>
+
+<div style="background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+    <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="background: #333; color: #fff;">
+                <th style="padding: 12px; text-align: left;">Fecha / Hora</th>
+                <th style="padding: 12px; text-align: left;">Usuario</th>
+                <th style="padding: 12px; text-align: left;">Acción Realizada</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 12px; color: #666; font-size: 0.9rem;">
+                    {{ log.fecha|date:"d/m/Y H:i:s" }}
+                </td>
+                <td style="padding: 12px; font-weight: bold; color: var(--secundario);">
+                    {% if log.usuario %}
+                        {{ log.usuario.username }}
+                        <span style="font-weight: normal; font-size: 0.8rem; color: #999;">
+                            ({{ log.usuario.groups.first.name|default:"Sin Rol" }})
+                        </span>
+                    {% else %}
+                        Anónimo
+                    {% endif %}
+                </td>
+                <td style="padding: 12px;">
+                    {{ log.accion }}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="3" style="padding: 30px; text-align: center; color: #999;">
+                    El sistema está limpio. No hay registros aún.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

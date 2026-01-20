@@ -2,46 +2,218 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Vinilos El Surco - Edición Digital</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>El Surco | Vinilos & Cultura</title>
+    <!-- Fuentes Google: Playfair (Serifa elegante) y Lato (Sans moderna) -->
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        :root { --negro: #1a1a1a; --dorado: #d4af37; --blanco: #f5f5f5; }
-        body { font-family: 'Helvetica Neue', sans-serif; background: var(--negro); color: var(--blanco); margin: 0; }
-        header { padding: 20px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
-        nav a { color: var(--blanco); text-decoration: none; margin-left: 20px; text-transform: uppercase; font-size: 0.9rem; }
-        .btn-dorado { background: var(--dorado); color: var(--negro); padding: 10px 20px; text-decoration: none; font-weight: bold; border: none; cursor: pointer; }
-        .container { max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
-        .grid-discos { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 30px; }
-        .card-disco { background: #2a2a2a; padding: 15px; text-align: center; }
-        .card-disco img { max-width: 100%; height: auto; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { text-align: left; padding: 10px; border-bottom: 1px solid #444; }
+        :root {
+            --fondo: #f4f1ea;       /* Crema papel antiguo */
+            --texto: #2b2b2b;       /* Negro suave */
+            --acento: #e76f51;      /* Naranja terracota */
+            --secundario: #264653;  /* Azul petróleo */
+            --borde: #dcd6cc;
+        }
+
+        body {
+            font-family: 'Lato', sans-serif;
+            background-color: var(--fondo);
+            color: var(--texto);
+            margin: 0;
+            line-height: 1.6;
+        }
+
+        h1, h2, h3 {
+            font-family: 'Playfair Display', serif;
+            color: var(--secundario);
+            margin-top: 0;
+        }
+
+        /* --- HEADER & NAV --- */
+        header {
+            background: #fff;
+            padding: 1rem 2rem;
+            border-bottom: 3px solid var(--secundario);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--secundario);
+            text-decoration: none;
+            letter-spacing: 1px;
+            font-family: 'Playfair Display', serif;
+        }
+
+        nav { display: flex; align-items: center; gap: 20px; }
+
+        nav a {
+            text-decoration: none;
+            color: var(--texto);
+            font-weight: 700;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            transition: color 0.3s;
+        }
+
+        nav a:hover { color: var(--acento); }
+
+        .btn-nav {
+            padding: 8px 16px;
+            border-radius: 4px;
+            border: 2px solid var(--secundario);
+        }
+        
+        .btn-nav-primary {
+            background: var(--secundario);
+            color: #fff !important;
+        }
+
+        /* --- LAYOUT --- */
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            min-height: 80vh;
+        }
+
+        /* --- BOTONES --- */
+        .btn {
+            display: inline-block;
+            background: var(--acento);
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.3s;
+        }
+
+        .btn:hover {
+            background: #d65a3b;
+            transform: translateY(-2px);
+        }
+
+        /* --- CARDS DISCOS --- */
+        .grid-discos {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 30px;
+        }
+
+        .card-disco {
+            background: #fff;
+            border: 1px solid var(--borde);
+            border-radius: 8px;
+            overflow: hidden;
+            transition: box-shadow 0.3s;
+        }
+
+        .card-disco:hover {
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+
+        .card-img-container {
+            height: 240px;
+            background: #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        
+        .card-img-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .card-body { padding: 15px; text-align: center; }
+
+        /* --- FORMS & TABLES --- */
+        input[type="text"], input[type="password"], input[type="email"], input[type="number"], select {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-family: 'Lato', sans-serif;
+        }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #fff; }
+        th { background: var(--secundario); color: white; padding: 12px; text-align: left; }
+        td { padding: 12px; border-bottom: 1px solid #ddd; }
+        
+        /* ALERTAS */
+        .alert { padding: 15px; margin-bottom: 20px; border-radius: 4px; background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .alert-error { background: #f8d7da; color: #721c24; border-color: #f5c6cb; }
+
     </style>
 </head>
 <body>
-    <header>
-        <div style="font-size: 1.5rem; font-weight: bold; color: var(--dorado);">EL SURCO <span style="font-size:0.8rem; color: #fff;">Vinilos</span></div>
-        <nav>
-            <a href="{% url 'inicio' %}">Inicio</a>
-            <a href="{% url 'catalogo' %}">Tienda</a>
-            <a href="{% url 'carrito' %}">Carrito</a>
-            {% if user.is_authenticated %}
-                <a href="{% url 'perfil' %}">Mi Perfil</a>
-                <!-- Links de roles -->
-                {% if perms.gestion.change_configuracionfiscal %}<a href="{% url 'finanzas' %}" style="color:var(--dorado)">Finanzas</a>{% endif %}
-            {% else %}
-                <a href="{% url 'login' %}">Iniciar Sesión</a>
-            {% endif %}
-        </nav>
-    </header>
-    
-    <div class="container">
-        {% if messages %}
-            {% for message in messages %}
-                <div style="padding: 10px; background: #333; margin-bottom: 20px; border-left: 4px solid var(--dorado);">{{ message }}</div>
-            {% endfor %}
-        {% endif %}
+
+<header>
+    <a href="{% url 'inicio' %}" class="logo">
+        <span style="color: var(--acento);">EL</span> SURCO
+    </a>
+    <nav>
+        <a href="{% url 'inicio' %}">Inicio</a>
+        <a href="{% url 'catalogo' %}">Tienda</a>
+        <a href="{% url 'carrito' %}">Carrito</a>
         
-        {% block content %}{% endblock %}
-    </div>
+        {% if user.is_authenticated %}
+            <!-- MENÚ CLIENTE -->
+            <a href="{% url 'perfil' %}">Mi Perfil</a>
+
+            <!-- MENÚ ROLES (Validación en template por permisos) -->
+            {% if perms.tienda.change_configuracionfiscal %} 
+                <a href="{% url 'finanzas' %}" style="color: var(--acento);">Finanzas</a>
+            {% endif %}
+
+            {% if perms.tienda.add_vinilomusical %}
+                <a href="{% url 'inventario' %}" style="color: var(--acento);">Bodega</a>
+            {% endif %}
+            
+            {% if user.is_superuser %}
+                 <a href="{% url 'crear_staff' %}" style="color: red; border: 1px solid red; padding: 5px;">+ Staff</a>
+                 <a href="{% url 'ver_logs' %}" style="color: #555; font-size: 0.8rem;">[Logs]</a>
+            {% endif %}
+            
+            <!-- Botón Salir -->
+            <form action="{% url 'logout' %}" method="post" style="display: inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn-nav btn-nav-primary" style="margin-left: 10px; cursor: pointer; border:none;">SALIR</button>
+            </form>
+        {% else %}
+            <!-- USUARIO ANÓNIMO -->
+            <a href="{% url 'login' %}" class="btn-nav">Ingresar</a>
+            <a href="{% url 'registro' %}" class="btn-nav btn-nav-primary">Registrarse</a>
+        {% endif %}
+    </nav>
+</header>
+
+<div class="container">
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert {% if message.tags == 'error' %}alert-error{% endif %}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    {% block content %}{% endblock %}
+</div>
+
+<footer style="background: var(--secundario); color: #fff; text-align: center; padding: 30px; margin-top: 50px;">
+    <p style="margin:0;">&copy; 2026 El Surco Vinilos. Pasión por lo analógico.</p>
+</footer>
+
 </body>
 </html>
