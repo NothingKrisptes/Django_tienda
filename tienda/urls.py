@@ -13,6 +13,7 @@ urlpatterns = [
     path('registro/', views.vistaRegistro, name='registro'),
     path('perfil/', views.vistaPerfil, name='perfil'),
     path('procesar/', views.procesarCompra, name='procesar_compra'),
+    path('orden/devolver/<int:orden_id>/', views.solicitarDevolucion, name='devolver_orden'),
     
     # Staff / Administrativas
     path('finanzas/', views.dashboardFinanzas, name='finanzas'),
@@ -26,4 +27,10 @@ urlpatterns = [
 
     # Logs
     path('gestion/logs/', views.vistaLogs, name='ver_logs'), # Solo Admin
+
+    # Carrito
+    path('inventario/editar/<int:producto_id>/', views.editarProducto, name='editar_producto'),
+    path('inventario/eliminar/<int:producto_id>/', views.eliminarProducto, name='eliminar_producto'),
+    path('inventario/reactivar/<int:producto_id>/', views.reactivarProducto, name='reactivar_producto'),
+
 ]

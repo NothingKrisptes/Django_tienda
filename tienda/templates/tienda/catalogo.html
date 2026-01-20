@@ -1,25 +1,58 @@
 {% extends 'tienda/base.html' %}
 
 {% block content %}
-<h2>Catálogo Completo</h2>
+<!-- ENCABEZADO Y BOTÓN DE AGREGAR -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; border-bottom: 1px solid #ddd; padding-bottom: 20px;">
+    <div>
+        <h2 style="margin: 0; color: var(--secundario);">Nuestra Colección</h2>
+        <p style="color: #666; margin: 5px 0 0 0;">Explora los sonidos que definieron generaciones.</p>
+    </div>
+
+    <!-- Solo visible para Bodega o SuperAdmin -->
+    {% if user.is_staff or perms.tienda.add_vinilomusical %}
+        <a href="{% url 'agregar_producto' %}" class="btn" style="background: var(--secundario);">
+            + NUEVO VINILO
+        </a>
+    {% endif %}
+</div>
+
+<!-- GRID DE PRODUCTOS -->
 <div class="grid-discos">
     {% for disco in discos %}
         <div class="card-disco">
-            {% if disco.imagenPortada %}
-                <img src="{{ disco.imagenPortada.url }}" alt="{{ disco.tituloDisco }}">
-            {% else %}
-                <div style="height: 200px; background: #333; display: flex; align-items: center; justify-content: center;">Sin Imagen</div>
-            {% endif %}
-            <h3 style="color: var(--dorado);">{{ disco.tituloDisco }}</h3>
-            <p>{{ disco.artistaPrincipal }}</p>
-            <p style="font-weight: bold;">${{ disco.precioUnitario }}</p>
-            <p style="font-size: 0.8rem; color: #aaa;">Stock: {{ disco.stockDisponible }}</p>
+            <div class="card-img-container">
+                <!-- LÓGICA HÍBRIDA DE IMAGEN -->
+                {% if disco.imagenPortada %}
+                    <img src="{{ disco.imagenPortada.url }}" alt="{{ disco.tituloDisco }}">
+                {% elif disco.imagenUrl %}
+                    <img src="{{ disco.imagenUrl }}" alt="{{ disco.tituloDisco }}">
+                {% else %}
+                    <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:#eee; color:#aaa;">
+                        <span style="font-size:3rem;">♫</span>
+                    </div>
+                {% endif %}
+            </div>
             
-            {% if disco.stockDisponible > 0 %}
-                <a href="{% url 'agregar_carrito' disco.id %}" class="btn-dorado">AL CARRITO</a>
-            {% else %}
-                <button disabled style="background: #555; border: none; padding: 10px; color: #999;">AGOTADO</button>
-            {% endif %}
+            <div class="card-body">
+                <h3 style="font-size: 1.1rem; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    {{ disco.tituloDisco }}
+                </h3>
+                <p style="color: #666; font-size: 0.9rem; margin-top: 0;">{{ disco.artistaPrincipal }}</p>
+                
+                <div style="font-size: 1.2rem; color: var(--acento); font-weight: bold; margin: 10px 0;">
+                    ${{ disco.precioUnitario }}
+                </div>
+                
+                {% if disco.stockDisponible > 0 %}
+                    <a href="{% url 'agregar_carrito' disco.id %}" class="btn" style="width: 100%; box-sizing: border-box;">
+                        AGREGAR AL CARRITO
+                    </a>
+                {% else %}
+                    <button disabled class="btn" style="width: 100%; background: #ccc; cursor: not-allowed;">
+                        AGOTADO
+                    </button>
+                {% endif %}
+            </div>
         </div>
     {% endfor %}
 </div>

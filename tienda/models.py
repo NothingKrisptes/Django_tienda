@@ -35,7 +35,9 @@ class ViniloMusical(models.Model):
     precioUnitario = models.DecimalField(max_digits=10, decimal_places=2)
     stockDisponible = models.IntegerField(default=0)
     imagenPortada = models.ImageField(upload_to='portadas/', blank=True, null=True)
-    categoria = models.ForeignKey(CategoriaMusical, on_delete=models.SET_NULL, null=True)
+    categoria = models.CharField(max_length=100, verbose_name="Género Musical")
+    imagenUrl = models.URLField(max_length=500, blank=True, null=True, verbose_name="URL de Imagen (Opcional)")
+    activo = models.BooleanField(default=True, verbose_name="¿Activo en Tienda?")
     
     # Lógica de devolución
     esNuevo = models.BooleanField(default=True)
@@ -43,6 +45,8 @@ class ViniloMusical(models.Model):
     
     def __str__(self):
         return f"{self.tituloDisco} - {self.artistaPrincipal}"
+    
+    def __str__(self): return self.tituloDisco
 
 class CuponDescuento(models.Model):
     codigoCupon = models.CharField(max_length=20, unique=True)

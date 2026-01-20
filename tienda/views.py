@@ -18,11 +18,11 @@ def esVendedor(user): return user.is_superuser or user.groups.filter(name='Vende
 # --- VISTAS PÚBLICAS Y CLIENTES ---
 
 def vistaInicio(request):
-    discosRecientes = ViniloMusical.objects.filter(stockDisponible__gt=0).order_by('-id')[:4]
+    discosRecientes = ViniloMusical.objects.filter(stockDisponible__gt=0, activo=True).order_by('-id')[:4]
     return render(request, 'tienda/inicio.html', {'discos': discosRecientes})
 
 def vistaCatalogo(request):
-    discos = ViniloMusical.objects.filter(stockDisponible__gt=0)
+    discos = ViniloMusical.objects.filter(stockDisponible__gt=0, activo=True)
     return render(request, 'tienda/catalogo.html', {'discos': discos})
 
 def agregarAlCarrito(request, producto_id):
@@ -228,3 +228,67 @@ def vistaCrearStaff(request):
 def vistaLogs(request):
     logs = LogAuditoria.objects.all().order_by('-fecha')[:50] 
     return render(request, 'tienda/admin_logs.html', {'logs': logs})
+
+@user_passes_test(esBodeguero)
+def editarProducto(request, producto_id):
+    producto = get_object_or_404(ViniloMusical, pk=producto_id)
+    if request.method == 'POST':
+        form = ViniloForm(request.POST, request.FILES, instance=producto)
+        if form.is_valid():
+            form.save()
+            registrarLog(request.user, f"Editó producto: {producto.tituloDisco}")
+            messages.success(request, "Producto actualizado correctamente.")
+            return redirect('inventario')
+    else:
+        form = ViniloForm(instance=producto)
+    return render(request, 'tienda/agregar_producto.html', {'form': form}) # Reutilizamos el template
+
+@user_passes_test(esBodeguero)
+def eliminarProducto(request, producto_id):
+    """Baja Lógica: No borra, solo oculta."""
+    producto = get_object_or_404(ViniloMusical, pk=producto_id)
+    
+    # Cambiamos el estado a Inactivo
+    producto.activo = False
+    producto.save()
+    
+    registrarLog(request.user, f"Dio de baja el producto: {producto.tituloDisco}")
+    messages.warning(request, "Producto dado de baja (Oculto en tienda).")
+    return redirect('inventario')
+
+@user_passes_test(esBodeguero)
+def reactivarProducto(request, producto_id):
+    """Restaura un producto dado de baja."""
+    producto = get_object_or_404(ViniloMusical, pk=producto_id)
+    
+    producto.activo = True
+    producto.save()
+    
+    registrarLog(request.user, f"Reactivó el producto: {producto.tituloDisco}")
+    messages.success(request, "Producto reactivado y visible en tienda.")
+    return redirect('inventario')
+
+@login_required
+def solicitarDevolucion(request, orden_id):
+    orden = get_object_or_404(OrdenVenta, pk=orden_id, cliente=request.user)
+    
+    if not orden.puedeDevolver():
+        messages.error(request, "El periodo de devolución ha expirado.")
+        return redirect('perfil')
+
+    if orden.estadoOrden == 'DEVUELTO':
+        messages.warning(request, "Esta orden ya fue devuelta.")
+        return redirect('perfil')
+
+    # Lógica de devolución de stock
+    for detalle in orden.detalles.all():
+        if detalle.producto.aceptaDevolucion:
+            detalle.producto.stockDisponible += detalle.cantidad
+            detalle.producto.save()
+    
+    orden.estadoOrden = 'DEVUELTO'
+    orden.save()
+    
+    registrarLog(request.user, f"Devolución procesada Orden #{orden.id}")
+    messages.success(request, "Devolución aceptada. El stock ha sido restaurado.")
+    return redirect('perfil')

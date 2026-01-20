@@ -1,57 +1,104 @@
 {% extends 'tienda/base.html' %}
 
 {% block content %}
+<!-- CABECERA -->
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 2px solid var(--secundario); padding-bottom: 20px;">
-    <h2 style="margin: 0;">Gestión de Inventario</h2>
-    <!-- BOTÓN CLAVE PARA AGREGAR -->
+    <div>
+        <h2 style="margin: 0; color: var(--secundario);">Gestión de Inventario</h2>
+        <p style="margin: 5px 0 0 0; color: #666; font-size: 0.9rem;">Control de stock y catálogo.</p>
+    </div>
     <a href="{% url 'agregar_producto' %}" class="btn">
         + NUEVO PRODUCTO
     </a>
 </div>
 
-<div style="background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
-    <table style="width: 100%; border-collapse: collapse;">
+<!-- TABLA -->
+<div style="background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); overflow-x: auto;">
+    <table style="width: 100%; border-collapse: collapse; min-width: 800px;">
         <thead>
-            <tr style="background: var(--secundario); color: #fff;">
+            <tr style="background: var(--secundario); color: #fff; text-transform: uppercase; font-size: 0.85rem;">
                 <th style="padding: 15px;">ID</th>
-                <th style="padding: 15px;">Producto</th>
-                <th style="padding: 15px;">Categoría</th>
-                <th style="padding: 15px;">Stock</th>
-                <th style="padding: 15px;">Precio</th>
-                <th style="padding: 15px;">Estado</th>
+                <th style="padding: 15px; text-align: left;">Producto</th>
+                <th style="padding: 15px; text-align: left;">Categoría</th>
+                <th style="padding: 15px; text-align: center;">Stock</th>
+                <th style="padding: 15px; text-align: right;">Precio</th>
+                <th style="padding: 15px; text-align: center;">Estado</th>
+                <th style="padding: 15px; text-align: center;">Acciones</th>
             </tr>
         </thead>
         <tbody>
             {% for item in inventario %}
-            <tr style="border-bottom: 1px solid #eee;">
-                <td style="padding: 15px;">{{ item.id }}</td>
+            <!-- Fila del producto -->
+            <tr style="border-bottom: 1px solid #eee; {% if not item.activo %}background-color: #ffebee; color: #888;{% endif %}">
+                
+                <td style="padding: 15px; font-weight: bold;">#{{ item.id }}</td>
+                
                 <td style="padding: 15px;">
-                    <strong>{{ item.tituloDisco }}</strong><br>
-                    <small style="color: #666;">{{ item.artistaPrincipal }}</small>
+                    <div style="font-weight: bold; font-size: 1rem;">
+                        {{ item.tituloDisco }}
+                    </div>
+                    <div style="font-size: 0.85rem;">
+                        {{ item.artistaPrincipal }}
+                    </div>
                 </td>
-                <td style="padding: 15px;">{{ item.categoria|default:"Sin Categoría" }}</td>
+                
                 <td style="padding: 15px;">
+                    <span style="background: #f5f5f5; padding: 4px 8px; border-radius: 4px; border: 1px solid #eee;">
+                        {{ item.categoria }}
+                    </span>
+                </td>
+                
+                <td style="padding: 15px; text-align: center;">
                     {% if item.stockDisponible == 0 %}
                         <span style="color: red; font-weight: bold;">AGOTADO</span>
                     {% elif item.stockDisponible < 5 %}
                         <span style="color: orange; font-weight: bold;">Bajo ({{ item.stockDisponible }})</span>
                     {% else %}
-                        <span style="color: green;">{{ item.stockDisponible }} Unidades</span>
+                        <span style="color: green; font-weight: bold;">{{ item.stockDisponible }}</span>
                     {% endif %}
                 </td>
-                <td style="padding: 15px;">${{ item.precioUnitario }}</td>
-                <td style="padding: 15px;">
-                    {% if item.aceptaDevolucion %}
-                        <span style="background: #e8f5e9; color: #2e7d32; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">Devolución OK</span>
+                
+                <td style="padding: 15px; text-align: right;">
+                    ${{ item.precioUnitario }}
+                </td>
+                
+                <td style="padding: 15px; text-align: center;">
+                    {% if item.activo %}
+                        <span style="color: green;">Activo</span>
                     {% else %}
-                        <span style="background: #ffebee; color: #c62828; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">Venta Final</span>
+                        <span style="background: #ffcdd2; color: #c62828; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem;">
+                            BAJA
+                        </span>
                     {% endif %}
+                </td>
+                
+                <td style="padding: 15px; text-align: center;">
+                    <div style="display: flex; gap: 10px; justify-content: center;">
+                        <a href="{% url 'editar_producto' item.id %}" title="Editar" style="text-decoration: none; font-size: 1.2rem;">
+                            📝
+                        </a>
+
+                        {% if item.activo %}
+                            <a href="{% url 'eliminar_producto' item.id %}" 
+                               title="Dar de baja" 
+                               style="text-decoration: none; font-size: 1.2rem;"
+                               onclick="return confirm('¿Dar de baja a este producto?');">
+                                ❌
+                            </a>
+                        {% else %}
+                            <a href="{% url 'reactivar_producto' item.id %}" 
+                               title="Reactivar" 
+                               style="text-decoration: none; font-size: 1.2rem;">
+                                🔄
+                            </a>
+                        {% endif %}
+                    </div>
                 </td>
             </tr>
             {% empty %}
             <tr>
-                <td colspan="6" style="padding: 40px; text-align: center; color: #999;">
-                    No hay productos en inventario. ¡Agrega el primero!
+                <td colspan="7" style="padding: 40px; text-align: center; color: #999;">
+                    No hay productos en inventario.
                 </td>
             </tr>
             {% endfor %}

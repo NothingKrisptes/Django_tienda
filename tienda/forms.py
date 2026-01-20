@@ -7,13 +7,35 @@ from .models import ViniloMusical
 class ViniloForm(forms.ModelForm):
     class Meta:
         model = ViniloMusical
-        fields = ['tituloDisco', 'artistaPrincipal', 'precioUnitario', 'stockDisponible', 'categoria', 'imagenPortada', 'esNuevo', 'aceptaDevolucion']
+        fields = ['tituloDisco', 'artistaPrincipal', 'precioUnitario', 'stockDisponible', 'categoria', 'imagenPortada', 'imagenUrl', 'esNuevo', 'aceptaDevolucion']
+        
+        # AQUÍ ESTÁ LA MAGIA PARA SEPARAR PALABRAS
+        labels = {
+            'tituloDisco': 'Título del Álbum',
+            'artistaPrincipal': 'Artista / Banda',
+            'precioUnitario': 'Precio de Venta ($)',
+            'stockDisponible': 'Stock Disponible',
+            'categoria': 'Género Musical (Elegir o Escribir)',
+            'imagenPortada': 'Subir Portada (Archivo)',
+            'imagenUrl': 'O pegar URL de imagen',
+            'esNuevo': '¿Es nuevo?',
+            'aceptaDevolucion': '¿Acepta Devolución?'
+        }
+
         widgets = {
             'tituloDisco': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Abbey Road'}),
             'artistaPrincipal': forms.TextInput(attrs={'class': 'form-control'}),
             'precioUnitario': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'stockDisponible': forms.NumberInput(attrs={'class': 'form-control'}),
-            'esNuevo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'imagenUrl': forms.URLInput(attrs={'class': 'form-control', 'placeholder': 'https://...'}),
+            # Quitamos estilos extra a los checkbox para manejarlos en el template
+            'esNuevo': forms.CheckboxInput(attrs={'class': 'checkbox-custom'}),
+            'aceptaDevolucion': forms.CheckboxInput(attrs={'class': 'checkbox-custom'}),
+            'categoria': forms.TextInput(attrs={
+                'class': 'form-control', 
+                'list': 'lista-generos', # Esto conecta con el datalist del HTML
+                'placeholder': 'Escribe o selecciona...'
+            }),
         }
 
 # --- FORMULARIO DE REGISTRO PÚBLICO (CLIENTE) ---
