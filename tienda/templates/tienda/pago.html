@@ -1,37 +1,201 @@
 {% extends 'tienda/base.html' %}
 {% block content %}
-<div style="max-width: 500px; margin: 0 auto; padding: 40px; background: #fff; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
-    <h2 style="text-align: center; color: var(--secundario);">Pago Seguro</h2>
+<div style="max-width: 600px; margin: 40px auto; padding: 40px; background: #fff; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
+    <h2 style="text-align: center; color: var(--secundario); margin-bottom: 10px;">Pago Seguro</h2>
     <div style="text-align: center; margin-bottom: 30px; font-size: 1.5rem; color: var(--acento);">
         Total a Pagar: <strong>${{ total|floatformat:2 }}</strong>
     </div>
 
-    <form method="post" action="{% url 'procesar_compra' %}">
+    <form method="post" action="{% url 'procesar_compra' %}" id="formPago" onsubmit="return validarFormulario()">
         {% csrf_token %}
         
-        <label>Nombre en la Tarjeta</label>
-        <input type="text" required placeholder="COMO APARECE EN LA TARJETA">
-        
-        <label>Número de Tarjeta</label>
-        <input type="text" name="card_number" required placeholder="0000 0000 0000 0000" maxlength="19" style="letter-spacing: 2px;">
-        
-        <div style="display: flex; gap: 20px;">
-            <div style="flex: 1;">
-                <label>Vencimiento</label>
-                <input type="text" placeholder="MM/YY" required maxlength="5">
+        <!-- SECCIÓN: DATOS DE ENTREGA -->
+        <div style="background: #f9f9f9; padding: 20px; border-radius: 6px; margin-bottom: 25px; border-left: 4px solid #2196f3;">
+            <h3 style="margin-top: 0; color: var(--secundario);">📍 Información de Entrega</h3>
+            
+            <label style="font-weight: bold; display: block; margin-bottom: 10px;">Tipo de Entrega:</label>
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 10px; cursor: pointer;">
+                    <input type="radio" name="tipo_entrega" value="RETIRO" checked onchange="toggleDireccion()"> 
+                    🏪 Retiro en Tienda (Gratis)
+                </label>
+                <label style="display: block; cursor: pointer;">
+                    <input type="radio" name="tipo_entrega" value="DOMICILIO" onchange="toggleDireccion()"> 
+                    🚚 Entrega a Domicilio (Gratis)
+                </label>
             </div>
-            <div style="flex: 1;">
-                <label>CVV</label>
-                <input type="password" placeholder="123" required maxlength="3">
+
+            <div id="campoDireccion" style="display: none;">
+                <label style="font-weight: bold;">Dirección Completa:</label>
+                <textarea name="direccion_entrega" rows="3" placeholder="Ej: Av. 10 de Agosto N24-123, Quito, Ecuador" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; margin-top: 5px; font-family: 'Lato', sans-serif; box-sizing: border-box;"></textarea>
             </div>
         </div>
 
-        <button type="submit" class="btn" style="width: 100%; margin-top: 20px; font-size: 1.1rem;">
-            🔒 PAGAR AHORA
+        <!-- SECCIÓN: TARJETA -->
+        <div style="background: #f0f7ff; padding: 20px; border-radius: 6px; border-left: 4px solid var(--acento);">
+            <h3 style="margin-top: 0; color: var(--secundario);">💳 Datos de Pago</h3>
+            
+            <label>Nombre en la Tarjeta</label>
+            <input type="text" id="nombre" required placeholder="COMO APARECE EN LA TARJETA" value="{{ user.get_full_name }}" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 15px; box-sizing: border-box;">
+            
+            <label>Número de Tarjeta</label>
+            <input type="text" name="card_number" id="cardNumber" required placeholder="0000 0000 0000 0000" maxlength="19" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 5px; letter-spacing: 2px; box-sizing: border-box;" oninput="formatearTarjeta(this)">
+            <small id="errorTarjeta" style="color: #d32f2f; display: none; margin-bottom: 10px; display: block;">⚠️ La tarjeta debe tener 16 dígitos</small>
+            
+            <div style="display: flex; gap: 15px; margin-top: 15px;">
+                <div style="flex: 1;">
+                    <label>Vencimiento (MM/YY)</label>
+                    <input type="text" id="vencimiento" placeholder="MM/YY" required maxlength="5" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;" oninput="formatearFecha(this)">
+                    <small id="errorFecha" style="color: #d32f2f; display: none;">⚠️ Tarjeta caducada</small>
+                </div>
+                <div style="flex: 1;">
+                    <label>CVV</label>
+                    <input type="password" id="cvv" placeholder="123" required maxlength="3" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;" oninput="validarCVV(this)">
+                    <small id="errorCVV" style="color: #d32f2f; display: none;">⚠️ Solo 3 dígitos</small>
+                </div>
+            </div>
+        </div>
+
+        <button type="submit" class="btn" id="btnPagar" style="width: 100%; margin-top: 20px; font-size: 1.1rem; padding: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            🔒 CONFIRMAR PAGO
         </button>
         <p style="text-align: center; font-size: 0.8rem; color: #888; margin-top: 15px;">
             Transacción encriptada de extremo a extremo.
         </p>
     </form>
 </div>
+
+<script>
+// Toggle dirección de entrega
+function toggleDireccion() {
+    const tipoDomicilio = document.querySelector('input[name="tipo_entrega"]:checked').value;
+    const campoDireccion = document.getElementById('campoDireccion');
+    const textareaDireccion = document.querySelector('textarea[name="direccion_entrega"]');
+    
+    if (tipoDomicilio === 'DOMICILIO') {
+        campoDireccion.style.display = 'block';
+        textareaDireccion.required = true;
+    } else {
+        campoDireccion.style.display = 'none';
+        textareaDireccion.required = false;
+    }
+}
+
+// Formatear número de tarjeta (agregar espacios automáticamente)
+function formatearTarjeta(input) {
+    let valor = input.value.replace(/\s/g, ''); // Quitar espacios
+    valor = valor.replace(/\D/g, ''); // Solo números
+    
+    // Agregar espacios cada 4 dígitos
+    let formateado = valor.match(/.{1,4}/g);
+    input.value = formateado ? formateado.join(' ') : valor;
+    
+    // Validar longitud (16 dígitos)
+    const errorTarjeta = document.getElementById('errorTarjeta');
+    if (valor.length > 0 && valor.length !== 16) {
+        errorTarjeta.style.display = 'block';
+        input.style.borderColor = '#d32f2f';
+    } else {
+        errorTarjeta.style.display = 'none';
+        input.style.borderColor = '#4caf50';
+    }
+}
+
+// Formatear fecha MM/YY
+function formatearFecha(input) {
+    let valor = input.value.replace(/\D/g, ''); // Solo números
+    
+    if (valor.length >= 2) {
+        valor = valor.substring(0, 2) + '/' + valor.substring(2, 4);
+    }
+    
+    input.value = valor;
+    validarFechaVencimiento(input);
+}
+
+// Validar que la tarjeta no esté caducada
+function validarFechaVencimiento(input) {
+    const errorFecha = document.getElementById('errorFecha');
+    const valor = input.value;
+    
+    if (valor.length === 5) { // MM/YY completo
+        const [mes, anio] = valor.split('/');
+        const mesNum = parseInt(mes);
+        const anioNum = parseInt('20' + anio);
+        
+        const fechaActual = new Date();
+        const mesActual = fechaActual.getMonth() + 1;
+        const anioActual = fechaActual.getFullYear();
+        
+        // Validar mes válido
+        if (mesNum < 1 || mesNum > 12) {
+            errorFecha.textContent = '⚠️ Mes inválido';
+            errorFecha.style.display = 'block';
+            input.style.borderColor = '#d32f2f';
+            return false;
+        }
+        
+        // Validar no caducada
+        if (anioNum < anioActual || (anioNum === anioActual && mesNum < mesActual)) {
+            errorFecha.textContent = '⚠️ Tarjeta caducada';
+            errorFecha.style.display = 'block';
+            input.style.borderColor = '#d32f2f';
+            return false;
+        }
+        
+        errorFecha.style.display = 'none';
+        input.style.borderColor = '#4caf50';
+        return true;
+    }
+    return true;
+}
+
+// Validar CVV (solo 3 dígitos)
+function validarCVV(input) {
+    const valor = input.value.replace(/\D/g, ''); // Solo números
+    input.value = valor;
+    
+    const errorCVV = document.getElementById('errorCVV');
+    if (valor.length > 0 && valor.length !== 3) {
+        errorCVV.style.display = 'block';
+        input.style.borderColor = '#d32f2f';
+    } else {
+        errorCVV.style.display = 'none';
+        input.style.borderColor = '#4caf50';
+    }
+}
+
+// Validación final antes de enviar
+function validarFormulario() {
+    const cardNumber = document.getElementById('cardNumber').value.replace(/\s/g, '');
+    const vencimiento = document.getElementById('vencimiento');
+    const cvv = document.getElementById('cvv').value;
+    
+    let errores = [];
+    
+    // Validar tarjeta
+    if (cardNumber.length !== 16) {
+        errores.push('La tarjeta debe tener 16 dígitos');
+        document.getElementById('errorTarjeta').style.display = 'block';
+    }
+    
+    // Validar fecha
+    if (!validarFechaVencimiento(vencimiento)) {
+        errores.push('Fecha de vencimiento inválida o caducada');
+    }
+    
+    // Validar CVV
+    if (cvv.length !== 3) {
+        errores.push('El CVV debe tener 3 dígitos');
+        document.getElementById('errorCVV').style.display = 'block';
+    }
+    
+    if (errores.length > 0) {
+        alert('⚠️ Errores en el formulario:\n\n' + errores.join('\n'));
+        return false;
+    }
+    
+    return true;
+}
+</script>
 {% endblock %}

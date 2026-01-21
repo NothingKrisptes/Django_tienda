@@ -52,7 +52,11 @@
             <div>
                 <p style="margin: 0; font-weight: bold; color: #333;">👤 Cliente:</p>
                 <p style="margin: 5px 0 0 0; font-size: 0.95rem; color: #666;">
-                    {{ orden.cliente.first_name }} {{ orden.cliente.last_name }}
+                    {% if orden.cliente.first_name %}
+                        {{ orden.cliente.first_name }} {{ orden.cliente.last_name }}
+                    {% else %}
+                        {{ orden.cliente.username }}
+                    {% endif %}
                 </p>
                 <p style="margin: 3px 0 0 0; font-size: 0.85rem; color: #999;">
                     📧 {{ orden.cliente.email }}
@@ -89,9 +93,10 @@
             <form method="POST" action="{% url 'actualizar_envio' orden.id %}" style="display: flex; gap: 10px;">
                 {% csrf_token %}
                 <select name="nuevoEstado" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; background: #fff;">
-                    <option value="REVISION" {% if orden.estadoOrden == 'REVISION' %}selected{% endif %}>En Revisión</option>
-                    <option value="CAMINO" {% if orden.estadoOrden == 'CAMINO' %}selected{% endif %}>En Camino</option>
-                    <option value="ENTREGADO" {% if orden.estadoOrden == 'ENTREGADO' %}selected{% endif %}>Entregado</option>
+                     <option value="REVISION" {% if orden.estadoEntrega == 'REVISION' %}selected{% endif %}>En Revisión</option>
+                    <option value="PREPARANDO" {% if orden.estadoEntrega == 'PREPARANDO' %}selected{% endif %}>Preparando</option>
+                    <option value="EN_CAMINO" {% if orden.estadoEntrega == 'EN_CAMINO' %}selected{% endif %}>En Camino</option>
+                    <option value="ENTREGADO" {% if orden.estadoEntrega == 'ENTREGADO' %}selected{% endif %}>Entregado</option>
                 </select>
                 <button type="submit" class="btn" style="background: var(--secundario); color: white; padding: 8px 16px; font-size: 0.9rem; border: none; border-radius: 4px; cursor: pointer;">
                     ✓ Actualizar

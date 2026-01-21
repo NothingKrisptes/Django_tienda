@@ -154,11 +154,12 @@ def vistaRegistro(request):
 @login_required
 def procesarCompra(request):
     if request.method == 'POST':
-        # Simulamos datos de tarjeta del formulario
-        numero_tarjeta = request.POST.get('card_number', '0000')[-4:] # Guardamos solo últimos 4
+        # CAPTURAR DATOS DEL FORMULARIO
+        numero_tarjeta = request.POST.get('card_number', '0000')[-4:]
+        tipo_entrega = request.POST.get('tipo_entrega', 'RETIRO')
+        direccion_entrega = request.POST.get('direccion_entrega', '')
         
         carrito = request.session.get('carrito', {})
-        # ... (lógica de recuperación de cupón igual que antes) ...
         cupon_code = request.session.get('cupon_aplicado')
         cuponObj = None
         if cupon_code:
@@ -167,7 +168,7 @@ def procesarCompra(request):
 
         datosCompra = GestorFinanciero.calcularTotalesCarrito(carrito, cuponObj)
         
-        # CREAMOS LA ORDEN CON LOS NUEVOS DATOS
+        # CREAR ORDEN CON DIRECCIÓN
         nuevaOrden = OrdenVenta.objects.create(
             cliente=request.user,
             subtotalSinImpuestos=datosCompra['subtotal'],
@@ -175,22 +176,22 @@ def procesarCompra(request):
             valorImpuestos=datosCompra['impuesto'],
             totalFinal=datosCompra['total'],
             estadoOrden='PAGADO',
-            estadoEntrega='REVISION', # Comienza en revisión por bodega
+            estadoEntrega='REVISION',
             cuponAplicado=cuponObj,
-            infoPago=f"Visa terminada en {numero_tarjeta}"
+            infoPago=f"Visa terminada en {numero_tarjeta}",
+            tipoEntrega=tipo_entrega,  # NUEVO
+            direccionEntrega=direccion_entrega if tipo_entrega == 'DOMICILIO' else None  # NUEVO
         )
         
-        # ... (Creación de DetalleOrden y Resta de Stock igual que antes) ...
+        # ... resto del código (crear detalles, restar stock, etc.) ...
         for item in datosCompra['items']:
              DetalleOrden.objects.create(
                  orden=nuevaOrden, producto=item['producto'],
                  cantidad=item['cantidad'], precioUnitarioHistorico=item['precio_aplicado']
              )
-             # BAJA DE STOCK
              item['producto'].stockDisponible -= item['cantidad']
              item['producto'].save()
 
-        # Limpieza
         if cuponObj:
             cuponObj.usuarios_usados.add(request.user)
             del request.session['cupon_aplicado']
@@ -198,6 +199,8 @@ def procesarCompra(request):
         
         messages.success(request, f"¡Pago Aprobado! Tu orden #{nuevaOrden.id} se está preparando.")
         return redirect('perfil')
+    
+    return redirect('carrito')
 
 @login_required
 def vistaPerfil(request):
@@ -375,11 +378,11 @@ def vistaLogs(request):
 # --- CHECKOUT Y PAGO ---
 @login_required
 def vistaPago(request):
-    """Simula pasarela de pago"""
+    """Simula pasarela de pago CON DIRECCIÓN"""
     carrito = request.session.get('carrito', {})
     if not carrito: return redirect('catalogo')
     
-    # Recalculamos totales para mostrar en el resumen final
+    # Recalculamos totales
     cupon_code = request.session.get('cupon_aplicado')
     cuponObj = None
     if cupon_code:
@@ -389,7 +392,10 @@ def vistaPago(request):
         
     datos = GestorFinanciero.calcularTotalesCarrito(carrito, cuponObj)
     
-    return render(request, 'tienda/pago.html', {'total': datos['total']})
+    return render(request, 'tienda/pago.html', {
+        'total': datos['total'],
+        'user': request.user  # Para prellenar nombre
+    })
 
 # --- LOGÍSTICA (BODEGA) ---
 
@@ -409,14 +415,22 @@ def gestionPedidosBodega(request):
 def actualizarEstadoEnvio(request, orden_id):
     if request.method == 'POST':
         orden = get_object_or_404(OrdenVenta, pk=orden_id)
-        nuevo_estado = request.POST.get('nuevo_estado')
-        orden.estadoEntrega = nuevo_estado
-        orden.save()
+        nuevo_estado = request.POST.get('nuevoEstado')  # Verifica que el nombre coincida con el form
         
-        # Log y Notificación
-        icono = "🚚" if nuevo_estado == 'EN_CAMINO' else "📦"
-        registrarLog(request.user, f"Cambió estado Orden #{orden.id} a {nuevo_estado}")
-        messages.success(request, f"Orden actualizada correctamente.")
+        # VALIDACIÓN DEFENSIVA
+        if not nuevo_estado or nuevo_estado not in ['REVISION', 'PREPARANDO', 'EN_CAMINO', 'ENTREGADO']:
+            messages.error(request, "Estado inválido")
+            return redirect('pedidos_bodega')
+        
+        # Asignar el nuevo estado
+        orden.estadoEntrega = nuevo_estado
+        
+        try:
+            orden.save()
+            registrarLog(request.user, f"Cambió estado Orden #{orden.id} a {nuevo_estado}")
+            messages.success(request, f"✅ Orden #{orden.id} actualizada a {nuevo_estado}")
+        except Exception as e:
+            messages.error(request, f"Error al actualizar: {str(e)}")
         
     return redirect('pedidos_bodega')
 
