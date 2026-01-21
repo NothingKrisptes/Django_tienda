@@ -1,5 +1,3 @@
-# tienda/views.py (COMPLETO Y CON LOGS DE AUDITORÍA)
-
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
@@ -7,25 +5,35 @@ from django.contrib.auth.models import Group
 from django.contrib.auth import login
 from .models import ViniloMusical, OrdenVenta, DetalleOrden, CuponDescuento, ConfiguracionFiscal, LogAuditoria
 from .services.gestorFinanciero import GestorFinanciero
-from .services.logger import registrarLog # <--- IMPORTANTE: El servicio de logs
+from .services.logger import registrarLog
 from .forms import ViniloForm, RegistroClienteForm, CreacionStaffForm, CuponForm
 
 # --- HELPERS DE SEGURIDAD (ROLES) ---
 def esFinanzas(user): return user.is_superuser or user.groups.filter(name='Finanzas').exists()
 def esBodeguero(user): return user.is_superuser or user.groups.filter(name='Bodega').exists()
-def esVendedor(user): return user.is_superuser or user.groups.filter(name='Vendedor').exists()
 
 # --- VISTAS PÚBLICAS Y CLIENTES ---
 
 def vistaInicio(request):
+    """Muestra productos y banner de oferta"""
+    # Solo productos activos y con stock
     discosRecientes = ViniloMusical.objects.filter(stockDisponible__gt=0, activo=True).order_by('-id')[:4]
-    return render(request, 'tienda/inicio.html', {'discos': discosRecientes})
+    
+    # Buscar el MEJOR cupón activo para mostrar en el banner
+    cuponDestacado = CuponDescuento.objects.filter(activo=True).order_by('-porcentajeDescuento').first()
+    
+    return render(request, 'tienda/inicio.html', {
+        'discos': discosRecientes, 
+        'cupon_promo': cuponDestacado 
+    })
 
 def vistaCatalogo(request):
+    """Tienda completa"""
     discos = ViniloMusical.objects.filter(stockDisponible__gt=0, activo=True)
     return render(request, 'tienda/catalogo.html', {'discos': discos})
 
 def agregarAlCarrito(request, producto_id):
+    """Añade producto a la sesión"""
     carrito = request.session.get('carrito', {})
     carrito[str(producto_id)] = carrito.get(str(producto_id), 0) + 1
     request.session['carrito'] = carrito
@@ -33,58 +41,70 @@ def agregarAlCarrito(request, producto_id):
     return redirect('catalogo')
 
 def verCarrito(request):
+    """Calcula totales y valida cupones"""
     carrito = request.session.get('carrito', {})
     cuponCodigo = request.GET.get('cupon')
     cuponObj = None
     
+    # Lógica de Validación de Cupón
     if cuponCodigo:
         try:
-            cuponObj = CuponDescuento.objects.get(codigoCupon=cuponCodigo, activo=True)
-            # Log de intento de cupón
+            potential_cupon = CuponDescuento.objects.get(codigoCupon=cuponCodigo, activo=True)
+            
+            # 1. Validar si ya lo usó (Solo usuarios logueados)
             if request.user.is_authenticated:
-                registrarLog(request.user, f"Aplicó cupón: {cuponCodigo}")
+                veces_usado = potential_cupon.usuarios_usados.filter(id=request.user.id).count()
+                if veces_usado >= potential_cupon.limite_uso:
+                    messages.error(request, f"Ya utilizaste el cupón '{cuponCodigo}' anteriormente.")
+                    # Limpiamos cupón de sesión si existía
+                    if 'cupon_aplicado' in request.session: del request.session['cupon_aplicado']
+                else:
+                    # Cupón válido
+                    cuponObj = potential_cupon
+                    request.session['cupon_aplicado'] = cuponCodigo # Guardar para el checkout
+                    messages.success(request, f"Cupón '{cuponCodigo}' aplicado correctamente.")
+            else:
+                # Si no está logueado, permitimos ver el descuento pero pediremos login al pagar
+                cuponObj = potential_cupon
+                request.session['cupon_aplicado'] = cuponCodigo
+                
         except CuponDescuento.DoesNotExist:
             messages.error(request, "El cupón ingresado no existe o venció.")
+            if 'cupon_aplicado' in request.session: del request.session['cupon_aplicado']
 
     datosCompra = GestorFinanciero.calcularTotalesCarrito(carrito, cuponObj)
     
-    contexto = {
+    return render(request, 'tienda/carrito.html', {
         'items': datosCompra['items'],
         'subtotal': datosCompra['subtotal'],
         'impuesto': datosCompra['impuesto'],
         'total': datosCompra['total'],
         'descuento': datosCompra['descuento'],
-        'cupon': cuponCodigo
-    }
-    return render(request, 'tienda/carrito.html', contexto)
+        'cupon': cuponCodigo if cuponObj else None, # Solo devolvemos el código si fue válido
+        'iva_porcentaje': datosCompra['iva_porcentaje']
+    })
 
 # --- AUTENTICACIÓN Y REGISTRO ---
 
 def vistaRegistro(request):
-    """Registro público: asigna rol Cliente automáticamente y mantiene el carrito"""
-    if request.user.is_authenticated:
-        return redirect('inicio')
+    if request.user.is_authenticated: return redirect('inicio')
 
     if request.method == 'POST':
         form = RegistroClienteForm(request.POST)
         if form.is_valid():
             usuario = form.save()
-            
-            # Asignar grupo Cliente
             grupoCliente, _ = Group.objects.get_or_create(name='Cliente')
             usuario.groups.add(grupoCliente)
-            
-            # Login automático + Persistencia de sesión
             login(request, usuario)
             
-            # [LOG] Registro de nuevo usuario
-            registrarLog(usuario, "Nuevo usuario registrado en la plataforma")
+            registrarLog(usuario, "Nuevo usuario registrado")
             
-            messages.success(request, f"¡Bienvenido {usuario.first_name}! Tu cuenta ha sido creada.")
+            # Regalo de bienvenida
+            cupon = CuponDescuento.objects.filter(activo=True).first()
+            codigo = cupon.codigoCupon if cupon else "SDK2026"
+            messages.success(request, f"¡Bienvenido! Usa el código '{codigo}' para tu primera compra.")
             
-            # Si hay carrito pendiente, ir directo a pagar
-            if request.session.get('carrito'):
-                return redirect('carrito')
+            if request.session.get('carrito'): return redirect('carrito')
             return redirect('inicio')
     else:
         form = RegistroClienteForm()
@@ -99,7 +119,19 @@ def procesarCompra(request):
         carrito = request.session.get('carrito', {})
         if not carrito: return redirect('inicio')
         
-        datosCompra = GestorFinanciero.calcularTotalesCarrito(carrito)
+        # Recuperar cupón validado de la sesión
+        cupon_code = request.session.get('cupon_aplicado')
+        cuponObj = None
+        if cupon_code:
+            try:
+                cuponObj = CuponDescuento.objects.get(codigoCupon=cupon_code, activo=True)
+                # Re-validación final de seguridad
+                if cuponObj.usuarios_usados.filter(id=request.user.id).count() >= cuponObj.limite_uso:
+                    cuponObj = None # Anular si intenta trampa
+            except CuponDescuento.DoesNotExist:
+                pass
+
+        datosCompra = GestorFinanciero.calcularTotalesCarrito(carrito, cuponObj)
         
         # Crear Orden
         nuevaOrden = OrdenVenta.objects.create(
@@ -108,10 +140,11 @@ def procesarCompra(request):
             valorDescuento=datosCompra['descuento'],
             valorImpuestos=datosCompra['impuesto'],
             totalFinal=datosCompra['total'],
-            estadoOrden='PAGADO'
+            estadoOrden='PAGADO',
+            cuponAplicado=cuponObj
         )
         
-        # Detalles
+        # Guardar Detalles y Restar Stock
         for item in datosCompra['items']:
             producto = item['producto']
             cantidad = item['cantidad']
@@ -120,129 +153,115 @@ def procesarCompra(request):
                 orden=nuevaOrden,
                 producto=producto,
                 cantidad=cantidad,
-                precioUnitarioHistorico=producto.precioUnitario
+                precioUnitarioHistorico=item['precio_aplicado']
             )
             
             producto.stockDisponible -= cantidad
             producto.save()
             
+        # Registrar uso del cupón
+        if cuponObj:
+            cuponObj.usuarios_usados.add(request.user)
+            del request.session['cupon_aplicado']
+            
         request.session['carrito'] = {} # Vaciar carrito
         
-        # [LOG] Compra realizada
-        registrarLog(request.user, f"Realizó compra Orden #{nuevaOrden.id} por ${nuevaOrden.totalFinal}")
-        
-        messages.success(request, f"Compra realizada con éxito. Orden #{nuevaOrden.id}")
+        registrarLog(request.user, f"Compra Orden #{nuevaOrden.id} por ${nuevaOrden.totalFinal}")
+        messages.success(request, f"¡Compra exitosa! Orden #{nuevaOrden.id} generada.")
         return redirect('perfil')
         
     return redirect('carrito')
 
 @login_required
 def vistaPerfil(request):
-    # Si envía formulario para editar datos
     if request.method == 'POST':
         user = request.user
         user.first_name = request.POST.get('nombre')
         user.last_name = request.POST.get('apellido')
         user.email = request.POST.get('email')
         user.save()
-        
-        # [LOG] Actualización de perfil
-        registrarLog(user, "Actualizó sus datos de perfil")
-        
-        messages.success(request, "Datos actualizados correctamente.")
+        registrarLog(user, "Actualizó su perfil")
+        messages.success(request, "Datos actualizados.")
         return redirect('perfil')
 
     ordenes = OrdenVenta.objects.filter(cliente=request.user).order_by('-fechaCompra')
     return render(request, 'tienda/perfil.html', {'ordenes': ordenes, 'user': request.user})
 
+@login_required
+def solicitarDevolucion(request, orden_id):
+    orden = get_object_or_404(OrdenVenta, pk=orden_id, cliente=request.user)
+    
+    if not orden.puedeDevolver():
+        messages.error(request, "Plazo de devolución expirado.")
+        return redirect('perfil')
+        
+    if orden.estadoOrden == 'DEVUELTO':
+        return redirect('perfil')
+
+    # Restaurar Stock
+    for detalle in orden.detalles.all():
+        if detalle.producto.aceptaDevolucion:
+            detalle.producto.stockDisponible += detalle.cantidad
+            detalle.producto.save()
+    
+    orden.estadoOrden = 'DEVUELTO'
+    orden.save()
+    
+    registrarLog(request.user, f"Solicitó devolución Orden #{orden.id}")
+    messages.success(request, "Devolución aceptada. Se ha generado la nota de crédito.")
+    return redirect('perfil')
+
 # --- ZONA STAFF (ADMIN, BODEGA, FINANZAS) ---
 
 @user_passes_test(esFinanzas)
 def dashboardFinanzas(request):
-    # Inicializamos forms
     form_cupon = CuponForm()
     
     if request.method == "POST":
-        # Opción A: Cambiar IVA
         if 'btn_iva' in request.POST:
             nuevoIva = request.POST.get('nuevo_iva')
             config = ConfiguracionFiscal.objects.first() or ConfiguracionFiscal()
-            ivaAnterior = config.valorIva
             config.valorIva = float(nuevoIva)
             config.save()
-            registrarLog(request.user, f"Cambió Tasa IVA de {ivaAnterior} a {nuevoIva}")
-            messages.success(request, "Tasa de IVA actualizada")
-
-        # Opción B: Crear Cupón
+            registrarLog(request.user, f"Actualizó IVA a {nuevoIva}")
+            messages.success(request, "Configuración fiscal actualizada")
+            
         elif 'btn_cupon' in request.POST:
             form_cupon = CuponForm(request.POST)
             if form_cupon.is_valid():
-                cupon = form_cupon.save()
-                registrarLog(request.user, f"Creó cupón: {cupon.codigoCupon} ({cupon.porcentajeDescuento})")
-                messages.success(request, f"Cupón {cupon.codigoCupon} creado exitosamente")
+                c = form_cupon.save()
+                registrarLog(request.user, f"Creó cupón {c.codigoCupon}")
+                messages.success(request, "Cupón de descuento creado")
                 return redirect('finanzas')
 
-    ingresosTotales = sum(o.totalFinal for o in OrdenVenta.objects.filter(estadoOrden='PAGADO'))
-    configFiscal = ConfiguracionFiscal.obtenerIvaActual()
-    # Listamos cupones existentes
+    ingresos = sum(o.totalFinal for o in OrdenVenta.objects.filter(estadoOrden='PAGADO'))
+    config = ConfiguracionFiscal.obtenerIvaActual()
     cupones = CuponDescuento.objects.all().order_by('-id')
     
     return render(request, 'tienda/dashboard_finanzas.html', {
-        'ingresos': ingresosTotales,
-        'iva_actual': configFiscal,
-        'form_cupon': form_cupon,
+        'ingresos': ingresos, 
+        'iva_actual': config, 
+        'form_cupon': form_cupon, 
         'cupones': cupones
     })
 
 @user_passes_test(esBodeguero)
 def reporteInventario(request):
-    # [LOG] Acceso a reporte (Opcional, puede generar ruido si se usa mucho)
-    # registrarLog(request.user, "Consultó reporte de inventario") 
     inventario = ViniloMusical.objects.all()
     return render(request, 'tienda/reporte_inventario.html', {'inventario': inventario})
 
 @user_passes_test(esBodeguero)
 def agregarProducto(request):
-    """Permite subir productos desde el frontend"""
     if request.method == 'POST':
         form = ViniloForm(request.POST, request.FILES)
         if form.is_valid():
-            producto = form.save()
-            
-            # [LOG] Gestión de Inventario
-            registrarLog(request.user, f"Agregó nuevo producto: {producto.tituloDisco} ({producto.stockDisponible} u.)")
-            
-            messages.success(request, "Nuevo vinilo añadido al catálogo.")
+            p = form.save()
+            registrarLog(request.user, f"Agregó producto: {p.tituloDisco}")
+            messages.success(request, "Producto añadido al catálogo.")
             return redirect('catalogo')
     else:
         form = ViniloForm()
     return render(request, 'tienda/agregar_producto.html', {'form': form})
-
-@user_passes_test(lambda u: u.is_superuser)
-def vistaCrearStaff(request):
-    """Solo SuperAdmin crea empleados y asigna roles"""
-    if request.method == 'POST':
-        form = CreacionStaffForm(request.POST)
-        if form.is_valid():
-            usuario = form.save()
-            grupo = form.cleaned_data['rolSeleccionado']
-            usuario.groups.add(grupo)
-            usuario.is_staff = True 
-            usuario.save()
-            
-            # [LOG] Gestión de RRHH
-            registrarLog(request.user, f"Creó empleado {usuario.username} con rol {grupo.name}")
-            
-            messages.success(request, f"Empleado {usuario.username} creado con rol {grupo.name}")
-            return redirect('inicio') 
-    else:
-        form = CreacionStaffForm()
-    return render(request, 'tienda/admin_crear_staff.html', {'form': form})
-
-@user_passes_test(lambda u: u.is_superuser)
-def vistaLogs(request):
-    logs = LogAuditoria.objects.all().order_by('-fecha')[:50] 
-    return render(request, 'tienda/admin_logs.html', {'logs': logs})
 
 @user_passes_test(esBodeguero)
 def editarProducto(request, producto_id):
@@ -252,68 +271,49 @@ def editarProducto(request, producto_id):
         if form.is_valid():
             form.save()
             registrarLog(request.user, f"Editó producto: {producto.tituloDisco}")
-            messages.success(request, "Producto actualizado correctamente.")
+            messages.success(request, "Cambios guardados.")
             return redirect('inventario')
     else:
         form = ViniloForm(instance=producto)
-    return render(request, 'tienda/agregar_producto.html', {'form': form}) # Reutilizamos el template
+    return render(request, 'tienda/agregar_producto.html', {'form': form})
 
 @user_passes_test(esBodeguero)
 def eliminarProducto(request, producto_id):
-    """Baja Lógica: No borra, solo oculta."""
-    producto = get_object_or_404(ViniloMusical, pk=producto_id)
-    
-    # Cambiamos el estado a Inactivo
-    producto.activo = False
-    producto.save()
-    
-    registrarLog(request.user, f"Dio de baja el producto: {producto.tituloDisco}")
-    messages.warning(request, "Producto dado de baja (Oculto en tienda).")
+    """Baja Lógica"""
+    p = get_object_or_404(ViniloMusical, pk=producto_id)
+    p.activo = False
+    p.save()
+    registrarLog(request.user, f"Dio de baja: {p.tituloDisco}")
+    messages.warning(request, "Producto oculto de la tienda.")
     return redirect('inventario')
 
 @user_passes_test(esBodeguero)
 def reactivarProducto(request, producto_id):
-    """Restaura un producto dado de baja."""
-    producto = get_object_or_404(ViniloMusical, pk=producto_id)
-    
-    producto.activo = True
-    producto.save()
-    
-    registrarLog(request.user, f"Reactivó el producto: {producto.tituloDisco}")
-    messages.success(request, "Producto reactivado y visible en tienda.")
+    p = get_object_or_404(ViniloMusical, pk=producto_id)
+    p.activo = True
+    p.save()
+    registrarLog(request.user, f"Reactivó: {p.tituloDisco}")
+    messages.success(request, "Producto visible nuevamente.")
     return redirect('inventario')
 
-@login_required
-def solicitarDevolucion(request, orden_id):
-    orden = get_object_or_404(OrdenVenta, pk=orden_id, cliente=request.user)
-    
-    if not orden.puedeDevolver():
-        messages.error(request, "El periodo de devolución ha expirado.")
-        return redirect('perfil')
-
-    if orden.estadoOrden == 'DEVUELTO':
-        messages.warning(request, "Esta orden ya fue devuelta.")
-        return redirect('perfil')
-
-    # Lógica de devolución de stock
-    for detalle in orden.detalles.all():
-        if detalle.producto.aceptaDevolucion:
-            detalle.producto.stockDisponible += detalle.cantidad
-            detalle.producto.save()
-    
-    orden.estadoOrden = 'DEVUELTO'
-    orden.save()
-    
-    registrarLog(request.user, f"Devolución procesada Orden #{orden.id}")
-    messages.success(request, "Devolución aceptada. El stock ha sido restaurado.")
-    return redirect('perfil')
-
-@user_passes_test(esFinanzas)
-def crearCupon(request):
+@user_passes_test(lambda u: u.is_superuser)
+def vistaCrearStaff(request):
     if request.method == 'POST':
-        form = CuponForm(request.POST)
+        form = CreacionStaffForm(request.POST)
         if form.is_valid():
-            form.save()
-            messages.success(request, "Cupón creado exitosamente")
-            return redirect('finanzas')
-    return redirect('finanzas') # O renderizar un template si prefieres
+            u = form.save()
+            g = form.cleaned_data['rolSeleccionado']
+            u.groups.add(g)
+            u.is_staff = True
+            u.save()
+            registrarLog(request.user, f"Creó empleado {u.username} ({g.name})")
+            messages.success(request, f"Empleado creado con rol {g.name}")
+            return redirect('inicio')
+    else:
+        form = CreacionStaffForm()
+    return render(request, 'tienda/admin_crear_staff.html', {'form': form})
+
+@user_passes_test(lambda u: u.is_superuser)
+def vistaLogs(request):
+    logs = LogAuditoria.objects.all().order_by('-fecha')[:100]
+    return render(request, 'tienda/admin_logs.html', {'logs': logs})

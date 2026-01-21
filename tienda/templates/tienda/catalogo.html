@@ -1,78 +1,74 @@
 {% extends 'tienda/base.html' %}
 
 {% block content %}
-<!-- ENCABEZADO -->
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; border-bottom: 1px solid #ddd; padding-bottom: 20px;">
     <div>
-        <h2 style="margin: 0; color: var(--secundario);">Nuestra Colección</h2>
-        <p style="color: #666; margin: 5px 0 0 0;">Explora los sonidos que definieron generaciones.</p>
+        <h2 style="margin: 0; color: var(--secundario);">Catálogo Completo</h2>
+        <p style="color: #666; margin: 5px 0 0 0;">Todos los géneros, todas las épocas.</p>
     </div>
-
-    <!-- BOTÓN SOLO PARA STAFF (BODEGA/ADMIN) -->
     {% if user.is_staff or perms.tienda.add_vinilomusical %}
-        <a href="{% url 'agregar_producto' %}" class="btn" style="background: var(--secundario);">
-            + NUEVO VINILO
-        </a>
+        <a href="{% url 'agregar_producto' %}" class="btn" style="background: var(--secundario);">+ NUEVO VINILO</a>
     {% endif %}
 </div>
 
-<!-- GRID DE PRODUCTOS -->
 <div class="grid-discos">
     {% for disco in discos %}
         <div class="card-disco">
             <div class="card-img-container">
-                <!-- LÓGICA DE IMAGEN HÍBRIDA -->
+                {% if disco.porcentajeDescuento > 0 %}
+                    <!-- ETIQUETA DE OFERTA EN LA FOTO -->
+                    <div style="position: absolute; top: 10px; right: 10px; background: #d32f2f; color: white; padding: 5px 10px; font-weight: bold; border-radius: 4px; font-size: 0.8rem; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+                        -{{ disco.porcentajeDescuento }}%
+                    </div>
+                {% endif %}
+                
                 {% if disco.imagenPortada %}
                     <img src="{{ disco.imagenPortada.url }}" alt="{{ disco.tituloDisco }}">
                 {% elif disco.imagenUrl %}
                     <img src="{{ disco.imagenUrl }}" alt="{{ disco.tituloDisco }}">
                 {% else %}
-                    <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:#eee; color:#aaa;">
-                        <span style="font-size:3rem;">♫</span>
-                    </div>
+                    <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:#eee; color:#aaa;"><span style="font-size:3rem;">♫</span></div>
                 {% endif %}
             </div>
             
-            <div class="card-body">
-                <h3 style="font-size: 1.1rem; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                    {{ disco.tituloDisco }}
-                </h3>
+            <div class="card-body" style="position: relative;">
+                <h3 style="font-size: 1.1rem; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ disco.tituloDisco }}</h3>
                 <p style="color: #666; font-size: 0.9rem; margin-top: 0;">{{ disco.artistaPrincipal }}</p>
                 
-                <!-- PRECIO -->
-                <div style="font-size: 1.2rem; color: var(--acento); font-weight: bold; margin: 10px 0;">
-                    ${{ disco.precioUnitario }}
+                <!-- PRECIO INTELIGENTE -->
+                <div style="margin: 10px 0; min-height: 45px;">
+                    {% if disco.porcentajeDescuento > 0 %}
+                        <div style="font-size: 0.9rem; color: #999; text-decoration: line-through;">${{ disco.precioUnitario }}</div>
+                        <div style="font-size: 1.3rem; color: #d32f2f; font-weight: bold;">
+                            ${{ disco.obtenerPrecioFinal|floatformat:2 }}
+                        </div>
+                    {% else %}
+                        <div style="font-size: 1.2rem; color: var(--acento); font-weight: bold; padding-top: 10px;">
+                            ${{ disco.precioUnitario }}
+                        </div>
+                    {% endif %}
                 </div>
 
-                <!-- STOCK VISUAL (NUEVO) -->
+                <!-- STOCK VISUAL -->
                 <div style="margin-bottom: 15px; font-size: 0.8rem; min-height: 20px;">
                     {% if disco.stockDisponible == 0 %}
                         <span style="color: #d32f2f; font-weight: bold;">❌ Agotado</span>
                     {% elif disco.stockDisponible < 5 %}
-                        <span style="color: #e65100; font-weight: bold; background: #fff3e0; padding: 2px 5px; border-radius: 4px;">
-                            ⚠️ ¡Solo quedan {{ disco.stockDisponible }}!
-                        </span>
+                        <span style="color: #e65100; font-weight: bold; background: #fff3e0; padding: 2px 5px; border-radius: 4px;">⚠️ Quedan {{ disco.stockDisponible }}</span>
                     {% else %}
-                        <span style="color: #388e3c; font-weight: bold;">
-                            ✅ Stock: {{ disco.stockDisponible }} Unidades
-                        </span>
+                        <span style="color: #388e3c;">✅ Stock: {{ disco.stockDisponible }} u.</span>
                     {% endif %}
                 </div>
                 
-                <!-- BOTÓN COMPRAR -->
                 {% if disco.stockDisponible > 0 %}
-                    <a href="{% url 'agregar_carrito' disco.id %}" class="btn" style="width: 100%; box-sizing: border-box;">
-                        AGREGAR AL CARRITO
-                    </a>
+                    <a href="{% url 'agregar_carrito' disco.id %}" class="btn" style="width: 100%;">AGREGAR</a>
                 {% else %}
-                    <button disabled class="btn" style="width: 100%; background: #e0e0e0; color: #999; cursor: not-allowed;">
-                        AGOTADO
-                    </button>
+                    <button disabled class="btn" style="width: 100%; background: #e0e0e0; color: #999; cursor: not-allowed;">AGOTADO</button>
                 {% endif %}
             </div>
         </div>
     {% empty %}
-        <p style="text-align: center; width: 100%;">No hay productos disponibles por el momento.</p>
+        <p style="text-align: center; width: 100%;">No hay productos activos.</p>
     {% endfor %}
 </div>
 {% endblock %}

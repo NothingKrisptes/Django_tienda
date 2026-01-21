@@ -12,31 +12,40 @@ class GestorFinanciero:
         subtotal = Decimal('0.00')
         itemsDetalle = []
         
-        # 1. Calcular Subtotal Bruto
+        # 1. Calcular Subtotal (Usando precio con descuento individual si existe)
         for productoId, cantidad in carritoDict.items():
             try:
                 producto = ViniloMusical.objects.get(pk=productoId)
-                totalLinea = producto.precioUnitario * int(cantidad)
+                
+                # PRECIO REAL (Si tiene oferta del 20%, usa ese precio)
+                precioReal = Decimal(producto.obtenerPrecioFinal())
+                
+                totalLinea = precioReal * int(cantidad)
                 subtotal += totalLinea
+                
                 itemsDetalle.append({
                     'producto': producto,
                     'cantidad': cantidad,
-                    'total': totalLinea
+                    'total': totalLinea,
+                    # Guardamos esto para saber qué precio se cobró
+                    'precio_aplicado': precioReal 
                 })
             except ViniloMusical.DoesNotExist:
                 continue
 
-        # 2. Calcular Descuento
+        # 2. Calcular Descuento Global (Cupón al final de la compra)
         montoDescuento = Decimal('0.00')
         if codigoCuponObj and codigoCuponObj.activo:
             montoDescuento = subtotal * codigoCuponObj.porcentajeDescuento
 
         subtotalConDescuento = subtotal - montoDescuento
 
-        # 3. Calcular IVA (Dinámico desde DB)
+        # 3. Calcular IVA
         tasaIva = ConfiguracionFiscal.obtenerIvaActual()
-        montoImpuesto = subtotalConDescuento * tasaIva
+        # Convertimos a Decimal por seguridad
+        tasaIva = Decimal(str(tasaIva)) 
         
+        montoImpuesto = subtotalConDescuento * tasaIva
         totalPagar = subtotalConDescuento + montoImpuesto
         
         return {
@@ -44,5 +53,6 @@ class GestorFinanciero:
             'subtotal': subtotal,
             'descuento': montoDescuento,
             'impuesto': montoImpuesto,
-            'total': totalPagar
+            'total': totalPagar,
+            'iva_porcentaje': int(tasaIva * 100)
         }
