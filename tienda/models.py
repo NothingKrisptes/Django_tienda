@@ -35,24 +35,37 @@ class ViniloMusical(models.Model):
     artistaPrincipal = models.CharField(max_length=200)
     precioUnitario = models.DecimalField(max_digits=10, decimal_places=2)
     stockDisponible = models.IntegerField(default=0)
-    
     # Campo nuevo para ofertas individuales
     porcentajeDescuento = models.IntegerField(default=0, verbose_name="Descuento (%)", help_text="0 para precio normal")
-    
     # Baja Lógica
     activo = models.BooleanField(default=True, verbose_name="¿Activo en Tienda?")
-    
     # Imágenes (Híbrido)
     imagenPortada = models.ImageField(upload_to='portadas/', blank=True, null=True)
     imagenUrl = models.URLField(max_length=500, blank=True, null=True, verbose_name="URL de Imagen (Opcional)")
-    
     # Categoría simple (sin relación)
     categoria = models.CharField(max_length=100, verbose_name="Género Musical")
-    
     # Reglas de negocio
     esNuevo = models.BooleanField(default=True)
     aceptaDevolucion = models.BooleanField(default=True)
+    descripcion = models.TextField(
+        blank=True, 
+        null=True, 
+        verbose_name="Descripción del Álbum",
+        help_text="Historia del disco, canciones destacadas, etc."
+    )
+    listaCanciones = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Lista de Canciones",
+        help_text="Una por línea o separadas por comas"
+    )
     
+    def obtenerAhorro(self):
+        """Calcula cuánto dinero ahorra el cliente"""
+        if self.porcentajeDescuento > 0:
+            return self.precioUnitario - self.obtenerPrecioFinal()
+        return 0
+
     def obtenerPrecioFinal(self):
         """Calcula el precio real si tiene descuento individual"""
         if self.porcentajeDescuento > 0:
@@ -63,6 +76,8 @@ class ViniloMusical(models.Model):
         return self.precioUnitario
     
     def __str__(self): return self.tituloDisco
+
+    
 
 class CuponDescuento(models.Model):
     codigoCupon = models.CharField(max_length=20, unique=True)
@@ -76,6 +91,10 @@ class CuponDescuento(models.Model):
 
 # --- VENTAS ---
 class OrdenVenta(models.Model):
+    TIPO_ENTREGA_CHOICES = [
+        ('DOMICILIO', 'Entrega a Domicilio'),
+        ('RETIRO', 'Retiro en Tienda'),
+    ]
     ESTADOS = [('PENDIENTE', 'Pendiente'), ('PAGADO', 'Pagado'), ('DEVUELTO', 'Devuelto')]
     ESTADOS_ENVIO = [
         ('REVISION', '⏳ En Revisión'),
@@ -96,13 +115,34 @@ class OrdenVenta(models.Model):
     motivoDevolucion = models.TextField(blank=True, null=True)
     montoReembolsado = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     cuponAplicado = models.ForeignKey(CuponDescuento, on_delete=models.SET_NULL, null=True, blank=True)
+    tipoEntrega = models.CharField(max_length=20,choices=TIPO_ENTREGA_CHOICES,default='RETIRO')
+    direccionEntrega = models.TextField( null=True,blank=True,help_text="Dirección de entrega a domicilio")
+    montoDescuento = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    class Meta:
+        ordering = ['-fechaCompra']
     
     def puedeDevolver(self):
         limite = self.fechaCompra + timedelta(days=7)
         return timezone.now() <= limite
+    
+class Cupon(models.Model):
+    codigo = models.CharField(max_length=50, unique=True)
+    porcentajeDescuento = models.DecimalField(max_digits=5, decimal_places=2, help_text="Porcentaje de 0 a 100")
+    enBanner = models.BooleanField(default=False, verbose_name="¿Mostrar en Banner?")
+    activo = models.BooleanField(default=True)
+    
+    def __str__(self):
+        return self.codigo
+
+    class Meta:
+        verbose_name = "Cupón"
+        verbose_name_plural = "Cupones"
 
 class DetalleOrden(models.Model):
     orden = models.ForeignKey(OrdenVenta, related_name='detalles', on_delete=models.CASCADE)
     producto = models.ForeignKey(ViniloMusical, on_delete=models.PROTECT)
     cantidad = models.IntegerField(default=1)
     precioUnitarioHistorico = models.DecimalField(max_digits=10, decimal_places=2)
+
+

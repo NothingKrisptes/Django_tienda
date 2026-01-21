@@ -1,42 +1,58 @@
 {% extends 'tienda/base.html' %}
-{% load math_extras %}
 
 {% block content %}
 
-{% if cupon_promo %}
-<div style="background: var(--secundario); color: #fff; padding: 15px; text-align: center; border-radius: 4px; margin-bottom: 30px; border: 1px dashed #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
-    <span style="font-family: 'Playfair Display', serif; font-size: 1.2rem; margin-right: 10px;">
-        🎁 ¡Oferta Especial!
-    </span>
-    Usa el código <strong style="background: #fff; color: var(--secundario); padding: 5px 10px; border-radius: 4px; letter-spacing: 1px;">{{ cupon_promo.codigoCupon }}</strong>
-    y obtén un <strong>{{ cupon_promo.porcentajeDescuento|porcentaje }}%</strong> de descuento extra.
+<!-- HERO SECTION CON IMAGEN DE FONDO -->
+<div style="position: relative; height: 500px; background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.6)), url('https://images.unsplash.com/photo-1603048588665-791ca8aea617?w=1600') center/cover; border-radius: 12px; margin-bottom: 50px; display: flex; align-items: center; justify-content: center; text-align: center; color: white; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+    <div style="z-index: 2;">
+        <!-- TÍTULO EN BLANCO PARA MEJOR CONTRASTE -->
+        <h1 style="font-size: 4rem; margin: 0 0 20px 0; font-family: 'Playfair Display', serif; letter-spacing: 3px; text-shadow: 2px 2px 8px rgba(0,0,0,0.7); color: #ffffff;">SDK VINILOS</h1>
+        <p style="font-size: 1.6rem; font-style: italic; max-width: 700px; margin: 0 auto 40px auto; text-shadow: 1px 1px 5px rgba(0,0,0,0.7);">
+            "La música se ve mejor cuando gira."
+        </p>
+        <a href="{% url 'catalogo' %}" class="btn" style="background: var(--acento); color: white; padding: 18px 45px; font-size: 1.2rem; border: none; box-shadow: 0 6px 15px rgba(0,0,0,0.4); text-transform: uppercase; letter-spacing: 2px;">
+            Explorar Catálogo
+        </a>
+    </div>
+</div>
+
+<!-- BANNER DE CUPÓN (SOLO SI ESTÁ MARCADO COMO BANNER) -->
+{% if cupon_promo and cupon_promo.es_banner %}
+<div style="background: var(--acento); color: white; padding: 20px; text-align: center; border-radius: 8px; margin-bottom: 40px; border: 2px dashed white; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+    <span style="font-size: 1.5rem; margin-right: 15px;">🎁</span>
+    <strong style="font-size: 1.2rem;">¡Oferta Especial!</strong>
+    <span style="margin: 0 15px;">|</span>
+    Usa el código 
+    <strong style="background: white; color: var(--acento); padding: 5px 15px; border-radius: 5px; letter-spacing: 2px; margin: 0 10px; font-size: 1.1rem;">
+        {{ cupon_promo.codigoCupon }}
+    </strong>
+    y obtén <strong>{{ cupon_promo.porcentajeDescuento|floatformat:0 }}0% OFF</strong>
 </div>
 {% endif %}
-<!-- HERO -->
-<div style="text-align: center; padding: 80px 0; border-bottom: 2px solid var(--secundario); margin-bottom: 50px; background: radial-gradient(circle, #fff 0%, var(--fondo) 100%);">
-    <h1 style="font-size: 4rem; margin: 0 0 15px 0; color: var(--secundario); letter-spacing: -1px;">SDK VINILOS</h1>
-    <p style="font-size: 1.4rem; color: #666; font-family: 'Playfair Display', serif; font-style: italic; max-width: 600px; margin: 0 auto;">
-        "La música se ve mejor cuando gira."
-    </p>
-    <a href="{% url 'catalogo' %}" class="btn" style="display: inline-block; margin-top: 30px; padding: 15px 35px; font-size: 1.1rem;">
-        EXPLORAR CATÁLOGO
-    </a>
+
+<!-- SECCIÓN DE NOVEDADES -->
+<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 30px; padding-bottom: 15px; border-bottom: 2px solid #ddd;">
+    <h2 style="color: var(--secundario); margin: 0; font-size: 2rem;">🎵 Últimos Arribos</h2>
+    <a href="{% url 'catalogo' %}" style="color: var(--acento); text-decoration: none; font-weight: bold; font-size: 1rem;">Ver todo &rarr;</a>
 </div>
 
-<!-- NOVEDADES -->
-<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 30px;">
-    <h2 style="color: var(--secundario); margin: 0;">Últimos Arribos</h2>
-    <a href="{% url 'catalogo' %}" style="color: var(--acento); text-decoration: none; font-weight: bold;">Ver todo &rarr;</a>
-</div>
-
+<!-- GRID DE DISCOS -->
 <div class="grid-discos">
     {% for disco in discos %}
-        <div class="card-disco">
-            <div class="card-img-container">
+        <div class="card-disco" style="transition: transform 0.3s;">
+            <div class="card-img-container" style="position: relative;">
+                
+                <!-- ETIQUETA DE DESCUENTO EN LA IMAGEN -->
+                {% if disco.porcentajeDescuento > 0 %}
+                    <div style="position: absolute; top: 10px; right: 10px; background: #d32f2f; color: white; padding: 8px 12px; font-weight: bold; border-radius: 6px; font-size: 0.85rem; box-shadow: 0 3px 8px rgba(0,0,0,0.4); z-index: 10;">
+                        -{{ disco.porcentajeDescuento }}% OFF
+                    </div>
+                {% endif %}
+                
                 {% if disco.imagenPortada %}
-                    <img src="{{ disco.imagenPortada.url }}" alt="{{ disco.tituloDisco }}">
+                    <img src="{{ disco.imagenPortada.url }}" alt="{{ disco.tituloDisco }}" style="width: 100%; height: 100%; object-fit: cover;">
                 {% elif disco.imagenUrl %}
-                    <img src="{{ disco.imagenUrl }}" alt="{{ disco.tituloDisco }}">
+                    <img src="{{ disco.imagenUrl }}" alt="{{ disco.tituloDisco }}" style="width: 100%; height: 100%; object-fit: cover;">
                 {% else %}
                     <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:#eee; color:#aaa;">
                         <span style="font-size:3rem;">♫</span>
@@ -45,26 +61,61 @@
             </div>
             
             <div class="card-body">
-                <h3 style="font-size: 1.1rem; margin-bottom: 5px;">{{ disco.tituloDisco }}</h3>
-                <p style="margin: 0; font-size: 0.9rem; color: #555;">{{ disco.artistaPrincipal }}</p>
-                <p style="font-weight: bold; margin-top: 10px; color: var(--acento); font-size: 1.1rem;">${{ disco.precioUnitario }}</p>
+                <h3 style="font-size: 1.15rem; margin-bottom: 8px; color: var(--secundario);">{{ disco.tituloDisco }}</h3>
+                <p style="margin: 0; font-size: 0.95rem; color: #666;">{{ disco.artistaPrincipal }}</p>
                 
-                <!-- Stock mini -->
-                {% if disco.stockDisponible == 0 %}
-                    <div style="font-size: 0.75rem; color: #d32f2f; font-weight: bold; margin-bottom: 5px;">Agotado</div>
-                {% else %}
-                    <div style="font-size: 0.75rem; color: #555; margin-bottom: 5px;">
-                        Disponibles: <strong>{{ disco.stockDisponible }}</strong>
+                <!-- GÉNERO -->
+                <p style="font-size: 0.75rem; color: #999; background: #f5f5f5; padding: 3px 8px; border-radius: 10px; display: inline-block; margin: 8px 0;">
+                    {{ disco.categoria }}
+                </p>
+
+                <!-- PRECIO CON DESCUENTO -->
+                <div style="margin: 10px 0;">
+                    {% if disco.porcentajeDescuento > 0 %}
+                        <div style="font-size: 0.9rem; color: #999; text-decoration: line-through;">${{ disco.precioUnitario }}</div>
+                        <div style="font-size: 1.3rem; color: #d32f2f; font-weight: bold;">
+                            ${{ disco.obtenerPrecioFinal|floatformat:2 }}
+                        </div>
+                    {% else %}
+                        <div style="font-size: 1.2rem; color: var(--acento); font-weight: bold;">
+                            ${{ disco.precioUnitario }}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- STOCK -->
+                {% if disco.stockDisponible < 5 and disco.stockDisponible > 0 %}
+                    <div style="font-size: 0.8rem; color: #e65100; font-weight: bold; margin-bottom: 10px;">
+                        ⚠️ Quedan {{ disco.stockDisponible }}
                     </div>
                 {% endif %}
 
-                <a href="{% url 'agregar_carrito' disco.id %}" class="btn" style="margin-top: 5px; font-size: 0.8rem; display: block; width: 100%; box-sizing: border-box;">
-                    AÑADIR RÁPIDO
+                <!-- BOTÓN AGREGAR -->
+                <a href="{% url 'agregar_carrito' disco.id %}" class="btn" style="margin-top: 10px; font-size: 0.9rem; display: block; width: 100%; box-sizing: border-box; text-align: center; margin-bottom: 8px;">
+                    AÑADIR AL CARRITO
                 </a>
+
+                <!-- BOTÓN VER DETALLES (Solo si tiene descripción o lista de canciones) -->
+                {% if disco.descripcion or disco.listaCanciones %}
+                    <a href="{% url 'detalle_disco' disco.id %}" style="display: block; text-align: center; padding: 8px; background: transparent; color: var(--secundario); text-decoration: none; border-radius: 4px; font-size: 0.85rem; border: 1px solid #ddd; transition: all 0.2s;">
+                        📖 Ver Detalles
+                    </a>
+                {% endif %}
             </div>
         </div>
-    {% empty %}
-        <p style="text-align: center; color: #999; width: 100%;">Estamos renovando nuestro stock. Vuelve pronto.</p>
     {% endfor %}
 </div>
+
+<style>
+.card-disco:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+}
+
+a[href*="detalle_disco"]:hover {
+    background: #f5f5f5;
+    border-color: var(--secundario);
+}
+</style>
+
 {% endblock %}

@@ -12,6 +12,8 @@ class ViniloForm(forms.ModelForm):
                   'precioUnitario', 
                   'stockDisponible', 
                   'categoria',
+                  'descripcion',  
+                  'listaCanciones',
                   'porcentajeDescuento',
                   'imagenPortada', 
                   'imagenUrl', 
@@ -29,7 +31,9 @@ class ViniloForm(forms.ModelForm):
             'imagenPortada': 'Subir Portada (Archivo)',
             'imagenUrl': 'O pegar URL de imagen',
             'esNuevo': '¿Es nuevo?',
-            'aceptaDevolucion': '¿Acepta Devolución?'
+            'aceptaDevolucion': '¿Acepta Devolución?',
+            'descripcion': forms.Textarea(attrs={'rows': 4, 'placeholder': 'Ej: Álbum debut de 1994...'}),
+            'listaCanciones': forms.Textarea(attrs={'rows': 6, 'placeholder': '1. Canción 1\n2. Canción 2\n...'})
         }
 
         widgets = {

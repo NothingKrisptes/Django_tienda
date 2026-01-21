@@ -9,6 +9,18 @@ from .services.logger import registrarLog
 from .forms import ViniloForm, RegistroClienteForm, CreacionStaffForm, CuponForm
 from decimal import Decimal 
 from django.utils import timezone
+from django.shortcuts import redirect, render
+from tienda.models import Cupon
+from datetime import datetime
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.lib import colors
+from datetime import datetime, timedelta
+from django.db.models import Sum, Q
+from django.http import FileResponse
+import io
 
 # --- HELPERS DE SEGURIDAD (ROLES) ---
 def esFinanzas(user): return user.is_superuser or user.groups.filter(name='Finanzas').exists()
@@ -384,8 +396,14 @@ def vistaPago(request):
 @user_passes_test(esBodeguero)
 def gestionPedidosBodega(request):
     """Panel para que el bodeguero mueva los paquetes"""
-    pedidos_pendientes = OrdenVenta.objects.filter(estadoOrden='PAGADO').exclude(estadoEntrega='ENTREGADO').order_by('fechaCompra')
-    return render(request, 'tienda/admin_pedidos.html', {'pedidos': pedidos_pendientes})
+    # Traer TODOS los pedidos pagados que no estén entregados
+    pedidos_pendientes = OrdenVenta.objects.filter(
+        estadoOrden='PAGADO'
+    ).exclude(
+        estadoEntrega='ENTREGADO'
+    ).order_by('fechaCompra')
+    
+    return render(request, 'tienda/admin_pedidos.html', {'ordenes': pedidos_pendientes})
 
 @user_passes_test(esBodeguero)
 def actualizarEstadoEnvio(request, orden_id):
@@ -494,3 +512,248 @@ def solicitarDevolucion(request, orden_id):
     
     messages.success(request, f"Devolución procesada. Se han reembolsado ${monto_reembolso}.")
     return redirect('perfil')
+
+# CUPONES
+@login_required
+def crearCupon(request):
+    """Crear nuevo cupón (solo staff)"""
+    if not request.user.is_staff:
+        return redirect('inicio')
+    
+    if request.method == 'POST':
+        codigo = request.POST.get('codigo').upper()
+        descuento = float(request.POST.get('descuento', 0)) / 100  # IMPORTANTE: Convertir a decimal (15% = 0.15)
+        enBanner = request.POST.get('enBanner') == 'on'
+        
+        # Validar que no exista (USANDO EL MODELO CORRECTO)
+        if CuponDescuento.objects.filter(codigoCupon=codigo).exists():
+            messages.error(request, f"El código '{codigo}' ya existe.")
+            return redirect('finanzas')  # Redirige al dashboard
+        
+        # CREAR CUPÓN EN EL MODELO CORRECTO
+        cupon = CuponDescuento.objects.create(
+            codigoCupon=codigo,
+            porcentajeDescuento=descuento,
+            es_banner=enBanner,  # OJO: El campo se llama 'es_banner' no 'enBanner'
+            activo=True
+        )
+        
+        registrarLog(request.user, f"Creó cupón: {codigo} ({descuento*100}%)")
+        messages.success(request, f"✓ Cupón {codigo} creado correctamente.")
+        return redirect('finanzas')  # Vuelve al dashboard para que veas el cupón
+    
+    return render(request, 'tienda/crear_cupon.html')
+
+# Editar Cupón
+@login_required
+def editarCupon(request, cupon_id):
+    """Editar cupón existente"""
+    if not request.user.is_staff:
+        return redirect('inicio')
+    
+    cupon = get_object_or_404(CuponDescuento, pk=cupon_id)
+    
+    if request.method == 'POST':
+        cupon.codigoCupon = request.POST.get('codigo').upper()
+        cupon.porcentajeDescuento = float(request.POST.get('descuento', 0)) / 100
+        cupon.es_banner = request.POST.get('enBanner') == 'on'
+        cupon.activo = request.POST.get('activo') == 'on'
+        cupon.save()
+        
+        registrarLog(request.user, f"Editó cupón: {cupon.codigoCupon}")
+        messages.success(request, "Cupón actualizado correctamente.")
+        return redirect('finanzas')
+    
+    return render(request, 'tienda/editar_cupon.html', {'cupon': cupon})
+
+
+@login_required
+def eliminarCupon(request, cupon_id):
+    """Eliminar cupón"""
+    if not request.user.is_staff:
+        return redirect('inicio')
+    
+    cupon = get_object_or_404(CuponDescuento, pk=cupon_id)
+    codigo = cupon.codigoCupon
+    cupon.delete()
+    
+    registrarLog(request.user, f"Eliminó cupón: {codigo}")
+    messages.success(request, f"Cupón {codigo} eliminado.")
+    return redirect('finanzas')
+
+# --- PDFS
+@login_required
+def reporteFinanzasPDF(request):
+    """Generar reporte de finanzas en PDF"""
+    if not request.user.is_staff:
+        return redirect('inicio')
+    
+    # Crear buffer
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.5*inch, bottomMargin=0.5*inch)
+    
+    # Contenido
+    elementos = []
+    estilos = getSampleStyleSheet()
+    
+    # Título
+    titulo = Paragraph("📊 REPORTE DE FINANZAS SDK VINILOS", estilos['Title'])
+    elementos.append(titulo)
+    elementos.append(Spacer(1, 0.3*inch))
+    
+    # Fechas
+    fecha_hoy = datetime.now().strftime('%d/%m/%Y')
+    fecha_hace_7 = (datetime.now() - timedelta(days=7)).strftime('%d/%m/%Y')
+    
+    elementos.append(Paragraph(f"<b>Período:</b> {fecha_hace_7} al {fecha_hoy}", estilos['Normal']))
+    elementos.append(Spacer(1, 0.2*inch))
+    
+    # Datos financieros
+    ordenes_completadas = OrdenVenta.objects.filter(
+        estadoOrden='ENTREGADO',
+        fechaCompra__gte=datetime.now() - timedelta(days=7)
+    )
+    
+    ingresos_brutos = ordenes_completadas.aggregate(Sum('totalFinal'))['totalFinal__sum'] or 0
+    total_ordenes = ordenes_completadas.count()
+    ticket_promedio = ingresos_brutos / total_ordenes if total_ordenes > 0 else 0
+    
+    # Tabla de métricas
+    datos_metricas = [
+        ['Métrica', 'Valor'],
+        ['Ingresos Brutos (7 días)', f'${ingresos_brutos:.2f}'],
+        ['Órdenes Completadas', f'{total_ordenes}'],
+        ['Ticket Promedio', f'${ticket_promedio:.2f}'],
+        ['Descuentos Aplicados', f'${ordenes_completadas.aggregate(Sum("montoDescuento"))["montoDescuento__sum"] or 0:.2f}'],
+        ['Reembolsos', f'${ordenes_completadas.aggregate(Sum("montoReembolsado"))["montoReembolsado__sum"] or 0:.2f}'],
+    ]
+    
+    tabla_metricas = Table(datos_metricas, colWidths=[3*inch, 2*inch])
+    tabla_metricas.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1976d2')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+    ]))
+    
+    elementos.append(tabla_metricas)
+    elementos.append(PageBreak())
+    
+    # Detalle de órdenes
+    elementos.append(Paragraph("<b>Detalle de Órdenes:</b>", estilos['Heading2']))
+    elementos.append(Spacer(1, 0.2*inch))
+    
+    datos_ordenes = [
+        ['Orden', 'Cliente', 'Total', 'Descuento', 'Estado']
+    ]
+    
+    for orden in ordenes_completadas[:15]:  # Primeras 15
+        datos_ordenes.append([
+            f'#{orden.id}',
+            orden.cliente.first_name[:15],
+            f'${orden.totalFinal:.2f}',
+            f'${orden.montoDescuento:.2f}',
+            orden.get_estadoOrden_display()
+        ])
+    
+    tabla_ordenes = Table(datos_ordenes, colWidths=[0.8*inch, 1.5*inch, 1.2*inch, 1.2*inch, 1.3*inch])
+    tabla_ordenes.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1976d2')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('FONTSIZE', (0, 0), (-1, 0), 10),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('GRID', (0, 0), (-1, -1), 1, colors.grey),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey]),
+    ]))
+    
+    elementos.append(tabla_ordenes)
+    
+    # Pie de página
+    elementos.append(Spacer(1, 0.3*inch))
+    elementos.append(Paragraph(f"Generado: {datetime.now().strftime('%d/%m/%Y %H:%M')}", estilos['Normal']))
+    
+    # Generar PDF
+    doc.build(elementos)
+    buffer.seek(0)
+    
+    return FileResponse(buffer, as_attachment=True, filename=f"Reporte_Finanzas_{datetime.now().strftime('%d%m%Y')}.pdf")
+
+
+@login_required
+def reporteBodegaPDF(request):
+    """Generar reporte de inventario en PDF"""
+    if not request.user.is_staff:
+        return redirect('inicio')
+    
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.5*inch, bottomMargin=0.5*inch)
+    
+    elementos = []
+    estilos = getSampleStyleSheet()
+    
+    # Título
+    titulo = Paragraph("📦 REPORTE DE INVENTARIO - BODEGA", estilos['Title'])
+    elementos.append(titulo)
+    elementos.append(Spacer(1, 0.3*inch))
+    
+    elementos.append(Paragraph(f"<b>Fecha:</b> {datetime.now().strftime('%d/%m/%Y %H:%M')}", estilos['Normal']))
+    elementos.append(Spacer(1, 0.2*inch))
+    
+    # Datos de inventario
+    productos = Producto.objects.filter(activo=True)
+    
+    datos_inventario = [
+        ['ID', 'Producto', 'Categoría', 'Stock', 'Precio', 'Estado']
+    ]
+    
+    for prod in productos:
+        estado_stock = 'AGOTADO' if prod.stockDisponible == 0 else ('BAJO' if prod.stockDisponible < 5 else 'OK')
+        datos_inventario.append([
+            f'{prod.id}',
+            prod.tituloDisco[:25],
+            prod.categoria,
+            f'{prod.stockDisponible}',
+            f'${prod.precioUnitario:.2f}',
+            estado_stock
+        ])
+    
+    tabla_inventario = Table(datos_inventario, colWidths=[0.5*inch, 1.8*inch, 1.2*inch, 0.8*inch, 1*inch, 0.9*inch])
+    tabla_inventario.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#c1471b')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('FONTSIZE', (0, 0), (-1, 0), 10),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('GRID', (0, 0), (-1, -1), 1, colors.grey),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey]),
+    ]))
+    
+    elementos.append(tabla_inventario)
+    
+    # Resumen
+    elementos.append(Spacer(1, 0.3*inch))
+    
+    total_stock = productos.aggregate(Sum('stockDisponible'))['stockDisponible__sum'] or 0
+    productos_bajos = productos.filter(stockDisponible__lt=5).count()
+    productos_agotados = productos.filter(stockDisponible=0).count()
+    
+    elementos.append(Paragraph(f"<b>Resumen:</b>", estilos['Heading3']))
+    elementos.append(Paragraph(f"• Total de Productos Activos: {productos.count()}", estilos['Normal']))
+    elementos.append(Paragraph(f"• Stock Total en Bodega: {total_stock} unidades", estilos['Normal']))
+    elementos.append(Paragraph(f"• Productos con Stock Bajo (&lt;5): {productos_bajos}", estilos['Normal']))
+    elementos.append(Paragraph(f"• Productos Agotados: {productos_agotados}", estilos['Normal']))
+    
+    # Generar PDF
+    doc.build(elementos)
+    buffer.seek(0)
+    
+    return FileResponse(buffer, as_attachment=True, filename=f"Reporte_Bodega_{datetime.now().strftime('%d%m%Y')}.pdf")
+
+# Vinilos
+def detalleVinilo(request, disco_id):
+    """Página de detalle de un vinilo específico"""
+    disco = get_object_or_404(ViniloMusical, pk=disco_id, activo=True)
+    return render(request, 'tienda/detalle_disco.html', {'disco': disco})

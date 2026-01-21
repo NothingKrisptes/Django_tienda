@@ -1,0 +1,46 @@
+{% extends 'tienda/base.html' %}
+
+{% block content %}
+<div style="max-width: 500px; margin: 40px auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+    
+    <h2 style="margin-top: 0; color: var(--secundario);">✏️ Editar Cupón</h2>
+    
+    <form method="POST">
+        {% csrf_token %}
+        
+        <div style="margin-bottom: 20px;">
+            <label style="display: block; font-weight: bold; margin-bottom: 8px;">Código:</label>
+            <input type="text" name="codigo" required value="{{ cupon.codigoCupon }}" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; text-transform: uppercase;">
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+            <label style="display: block; font-weight: bold; margin-bottom: 8px;">Porcentaje de Descuento (%):</label>
+            <input type="number" name="descuento" step="1" min="0" max="100" required value="{{ cupon.porcentajeDescuento|floatformat:0 }}" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+            <small style="color: #666;">Ejemplo: ingresa 15 para 15%</small>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" name="enBanner" {% if cupon.es_banner %}checked{% endif %}>
+                <span>¿Mostrar en Banner?</span>
+            </label>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" name="activo" {% if cupon.activo %}checked{% endif %}>
+                <span>¿Cupón Activo?</span>
+            </label>
+        </div>
+        
+        <div style="display: flex; gap: 10px;">
+            <button type="submit" class="btn" style="flex: 1; background: var(--secundario); color: white;">
+                ✓ Guardar Cambios
+            </button>
+            <a href="{% url 'finanzas' %}" class="btn" style="flex: 1; background: #999; color: white; text-align: center; text-decoration: none;">
+                ✕ Cancelar
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}

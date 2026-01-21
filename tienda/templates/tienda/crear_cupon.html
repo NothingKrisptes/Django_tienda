@@ -1,0 +1,38 @@
+{% extends 'tienda/base.html' %}
+
+{% block content %}
+<div style="max-width: 500px; margin: 40px auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+    
+    <h2 style="margin-top: 0; color: var(--secundario);">➕ Crear Nuevo Cupón</h2>
+    
+    <form method="POST">
+        {% csrf_token %}
+        
+        <div style="margin-bottom: 20px;">
+            <label style="display: block; font-weight: bold; margin-bottom: 8px;">Código:</label>
+            <input type="text" name="codigo" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;" placeholder="Ej: DESCUENTO50">
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+            <label style="display: block; font-weight: bold; margin-bottom: 8px;">Porcentaje de Descuento (%):</label>
+            <input type="number" name="descuento" step="0.01" min="0" max="100" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;" placeholder="Ej: 15">
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" name="enBanner">
+                <span>¿Mostrar en Banner?</span>
+            </label>
+        </div>
+        
+        <div style="display: flex; gap: 10px;">
+            <button type="submit" class="btn" style="flex: 1; background: var(--secundario); color: white;">
+                ✓ Crear Cupón
+            </button>
+            <a href="{% url 'crear_cupon' %}" class="btn" style="flex: 1; background: #999; color: white; text-align: center; text-decoration: none;">
+                ✕ Cancelar
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -41,4 +41,16 @@ urlpatterns = [
     path('bodega/pedidos/', views.gestionPedidosBodega, name='pedidos_bodega'),
     path('bodega/pedidos/actualizar/<int:orden_id>/', views.actualizarEstadoEnvio, name='actualizar_envio'),
 
+    # Cupones
+    path('staff/cupones/crear/', views.crearCupon, name='crear_cupon'),
+    path('staff/cupones/editar/<int:cupon_id>/', views.editarCupon, name='editar_cupon'),
+    path('staff/cupones/eliminar/<int:cupon_id>/', views.eliminarCupon, name='eliminar_cupon'),
+
+    # Pdfs
+    path('staff/reportes/finanzas/pdf/', views.reporteFinanzasPDF, name='reporte_finanzas_pdf'),
+    path('staff/reportes/bodega/pdf/', views.reporteBodegaPDF, name='reporte_bodega_pdf'),
+
+    # Vinilos
+    path('disco/<int:disco_id>/', views.detalleVinilo, name='detalle_disco'),
+
 ]
