@@ -1,0 +1,42 @@
+{% extends 'tienda/base.html' %}
+{% block content %}
+<h2>📦 Gestión de Envíos (Bodega)</h2>
+
+{% for orden in pedidos %}
+<div style="background: #fff; padding: 20px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 20px;">
+    
+    <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #eee; padding-bottom: 10px;">
+        <strong>Orden #{{ orden.id }}</strong>
+        <span style="color: #666;">{{ orden.fechaCompra|date:"d M Y, H:i" }}</span>
+    </div>
+
+    <div style="margin: 15px 0;">
+        <p><strong>Cliente:</strong> {{ orden.cliente.get_full_name }} ({{ orden.cliente.email }})</p>
+        <p><strong>Dirección:</strong> {{ orden.direccion_envio|default:"Retiro en tienda" }}</p> <!-- Si tienes campo dirección -->
+        
+        <ul style="background: #f9f9f9; padding: 10px 20px; border-radius: 4px;">
+            {% for item in orden.detalles.all %}
+                <li>{{ item.cantidad }}x {{ item.producto.tituloDisco }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <!-- CONTROL DE ESTADO -->
+    <form action="{% url 'actualizar_envio' orden.id %}" method="post" style="background: #e3f2fd; padding: 15px; border-radius: 6px; display: flex; align-items: center; gap: 15px;">
+        {% csrf_token %}
+        <label><strong>Estado Actual:</strong></label>
+        
+        <select name="nuevo_estado" style="padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
+            <option value="REVISION" {% if orden.estadoEntrega == 'REVISION' %}selected{% endif %}>⏳ En Revisión</option>
+            <option value="PREPARANDO" {% if orden.estadoEntrega == 'PREPARANDO' %}selected{% endif %}>📦 Preparando</option>
+            <option value="EN_CAMINO" {% if orden.estadoEntrega == 'EN_CAMINO' %}selected{% endif %}>🚚 En Camino</option>
+            <option value="ENTREGADO" {% if orden.estadoEntrega == 'ENTREGADO' %}selected{% endif %}>✅ Entregado</option>
+        </select>
+
+        <button type="submit" class="btn" style="padding: 8px 15px; font-size: 0.9rem;">ACTUALIZAR ESTADO</button>
+    </form>
+</div>
+{% empty %}
+    <p>No hay pedidos pendientes de envío.</p>
+{% endfor %}
+{% endblock %}

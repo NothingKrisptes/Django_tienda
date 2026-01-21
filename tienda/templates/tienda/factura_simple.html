@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Factura #{{ orden.id }} - SDK Vinilos</title>
+    <style>
+        body { font-family: monospace; max-width: 800px; margin: 40px auto; color: #333; }
+        .header { display: flex; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 20px; }
+        .info { margin: 20px 0; display: flex; justify-content: space-between; }
+        table { width: 100%; border-collapse: collapse; margin-top: 30px; }
+        th, td { border-bottom: 1px solid #ddd; padding: 10px; text-align: left; }
+        .total { margin-top: 30px; text-align: right; font-size: 1.2rem; }
+        .btn-print { background: #333; color: white; border: none; padding: 10px 20px; cursor: pointer; }
+        @media print { .btn-print { display: none; } }
+    </style>
+</head>
+<body>
+    <button onclick="window.print()" class="btn-print">IMPRIMIR / GUARDAR PDF</button>
+    
+    <div class="header">
+        <h1>SDK VINILOS</h1>
+        <div style="text-align: right;">
+            <p><strong>Factura N°:</strong> {{ orden.id }}</p>
+            <p><strong>Fecha:</strong> {{ orden.fechaCompra|date:"d/m/Y H:i" }}</p>
+        </div>
+    </div>
+
+    <div class="info">
+        <div>
+            <strong>Cliente:</strong><br>
+            {{ orden.cliente.first_name }} {{ orden.cliente.last_name }}<br>
+            {{ orden.cliente.email }}
+        </div>
+        <div style="text-align: right;">
+            <strong>Método de Pago:</strong><br>
+            {{ orden.metodoPago }}<br>
+            {{ orden.infoPago }}
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Producto</th>
+                <th>Cant</th>
+                <th>Unitario</th>
+                <th>Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in orden.detalles.all %}
+            <tr>
+                <td>{{ item.producto.tituloDisco }} ({{ item.producto.artistaPrincipal }})</td>
+                <td>{{ item.cantidad }}</td>
+                <td>${{ item.precioUnitarioHistorico }}</td>
+                <td>${{ item.cantidad|add:0 }} <!-- Truco simple mult --></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="total">
+        <p>Subtotal: ${{ orden.subtotalSinImpuestos }}</p>
+        <p>IVA: ${{ orden.valorImpuestos }}</p>
+        {% if orden.valorDescuento > 0 %}
+            <p>Descuento: -${{ orden.valorDescuento }}</p>
+        {% endif %}
+        <h2>TOTAL: ${{ orden.totalFinal }}</h2>
+    </div>
+    
+    <div style="margin-top: 50px; text-align: center; font-size: 0.8rem;">
+        Gracias por su compra. Documento generado electrónicamente.
+    </div>
+</body>
+</html>

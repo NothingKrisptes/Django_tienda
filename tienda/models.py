@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 from datetime import timedelta
+from decimal import Decimal
 
 # --- MODELO PARA FINANZAS ---
 class ConfiguracionFiscal(models.Model):
@@ -55,7 +56,9 @@ class ViniloMusical(models.Model):
     def obtenerPrecioFinal(self):
         """Calcula el precio real si tiene descuento individual"""
         if self.porcentajeDescuento > 0:
-            montoDesc = self.precioUnitario * (self.porcentajeDescuento / 100)
+            # Convertimos el factor de descuento a Decimal
+            factor = Decimal(self.porcentajeDescuento) / Decimal(100)
+            montoDesc = self.precioUnitario * factor
             return self.precioUnitario - montoDesc
         return self.precioUnitario
     
@@ -67,21 +70,32 @@ class CuponDescuento(models.Model):
     activo = models.BooleanField(default=True)
     usuarios_usados = models.ManyToManyField(User, blank=True, related_name='cupones_usados')
     limite_uso = models.IntegerField(default=1, help_text="Veces que un usuario puede usarlo")
+    es_banner = models.BooleanField(default=False, verbose_name="Mostrar en Banner")
     
     def __str__(self): return self.codigoCupon
 
 # --- VENTAS ---
 class OrdenVenta(models.Model):
     ESTADOS = [('PENDIENTE', 'Pendiente'), ('PAGADO', 'Pagado'), ('DEVUELTO', 'Devuelto')]
-    
+    ESTADOS_ENVIO = [
+        ('REVISION', '⏳ En Revisión'),
+        ('PREPARANDO', '📦 Preparando Paquete'),
+        ('EN_CAMINO', '🚚 En Camino'),
+        ('ENTREGADO', '✅ Entregado'),
+    ]
     cliente = models.ForeignKey(User, on_delete=models.CASCADE)
     fechaCompra = models.DateTimeField(auto_now_add=True)
     estadoOrden = models.CharField(max_length=20, choices=ESTADOS, default='PENDIENTE')
-    
     subtotalSinImpuestos = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     valorImpuestos = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     valorDescuento = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     totalFinal = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    estadoEntrega = models.CharField(max_length=20, choices=ESTADOS_ENVIO, default='REVISION')
+    metodoPago = models.CharField(max_length=50, default='Tarjeta Crédito')
+    infoPago = models.CharField(max_length=20, default='**** 0000', verbose_name="Terminación Tarjeta")
+    motivoDevolucion = models.TextField(blank=True, null=True)
+    montoReembolsado = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    cuponAplicado = models.ForeignKey(CuponDescuento, on_delete=models.SET_NULL, null=True, blank=True)
     
     def puedeDevolver(self):
         limite = self.fechaCompra + timedelta(days=7)

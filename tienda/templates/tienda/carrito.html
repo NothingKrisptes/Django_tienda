@@ -33,16 +33,62 @@
                         </div>
                     </td>
                     
-                    <!-- INFO -->
+                    <!-- INFO DEL PRODUCTO -->
                     <td style="padding: 15px;">
                         <strong>{{ item.producto.tituloDisco }}</strong><br>
                         <small style="color: #666;">{{ item.producto.artistaPrincipal }}</small>
+                        
+                        <!-- Etiqueta de oferta pequeña -->
+                        {% if item.producto.porcentajeDescuento > 0 %}
+                            <span style="background: #ffebee; color: #c62828; font-size: 0.7rem; padding: 1px 4px; border-radius: 3px; font-weight: bold;">
+                                -{{ item.producto.porcentajeDescuento }}% OFF
+                            </span>
+                        {% endif %}
                     </td>
                     
-                    <td style="padding: 15px;">${{ item.producto.precioUnitario }}</td>
-                    <td style="padding: 15px; text-align: center;">{{ item.cantidad }}</td>
+                    <!-- PRECIO UNITARIO (CON LÓGICA DE DESCUENTO VISUAL) -->
+                    <td style="padding: 15px;">
+                        {% if item.producto.porcentajeDescuento > 0 %}
+                            <span style="text-decoration: line-through; color: #999; font-size: 0.85rem;">
+                                ${{ item.producto.precioUnitario }}
+                            </span>
+                            <br>
+                            <span style="color: #d32f2f; font-weight: bold;">
+                                ${{ item.producto.obtenerPrecioFinal|floatformat:2 }}
+                            </span>
+                        {% else %}
+                            ${{ item.producto.precioUnitario }}
+                        {% endif %}
+                    </td>
+
+                    <!-- CANTIDAD (CON CONTROLES) -->
+                    <td style="padding: 15px; text-align: center;">
+                        <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                            
+                            <!-- RESTAR -->
+                            <a href="{% url 'actualizar_carrito' item.producto.id 'restar' %}" 
+                               style="background: #f0f0f0; color: #333; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; font-weight: bold; transition: background 0.2s;">
+                                -
+                            </a>
+
+                            <span style="font-weight: bold; min-width: 20px;">{{ item.cantidad }}</span>
+
+                            <!-- SUMAR -->
+                            <a href="{% url 'actualizar_carrito' item.producto.id 'sumar' %}" 
+                               style="background: #f0f0f0; color: #333; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; font-weight: bold; transition: background 0.2s;">
+                                +
+                            </a>
+
+                        </div>
+                        
+                        <!-- ELIMINAR -->
+                        <a href="{% url 'actualizar_carrito' item.producto.id 'eliminar' %}" 
+                           style="color: #d32f2f; font-size: 0.75rem; text-decoration: underline; margin-top: 5px; display: inline-block;">
+                           Eliminar
+                        </a>
+                    </td>
                     
-                    <!-- TOTAL FILA (Con redondeo) -->
+                    <!-- TOTAL FILA -->
                     <td style="padding: 15px; text-align: right; font-weight: bold;">
                         ${{ item.total|floatformat:2 }}
                     </td>
@@ -57,10 +103,14 @@
             <div style="width: 300px; text-align: right;">
                 <p style="margin: 5px 0;">Subtotal: <strong>${{ subtotal|floatformat:2 }}</strong></p>
                 
+                <!-- MOSTRAR AHORRO -->
                 {% if descuento > 0 %}
-                    <p style="margin: 5px 0; color: #2e7d32;">
-                        Descuento (Cupón): -${{ descuento|floatformat:2 }}
-                    </p>
+                    <div style="background: #e8f5e9; padding: 8px 12px; border-radius: 4px; display: inline-block; margin: 5px 0; color: #2e7d32; border: 1px solid #c8e6c9;">
+                        <strong>🎉 Ahorras: -${{ descuento|floatformat:2 }}</strong>
+                        {% if cupon %}
+                            <br><small style="font-size: 0.8rem;">(Cupón: {{ cupon }})</small>
+                        {% endif %}
+                    </div>
                 {% endif %}
                 
                 <p style="margin: 5px 0; color: #666;">IVA ({{ iva_porcentaje|default:"15" }}%): ${{ impuesto|floatformat:2 }}</p>
@@ -70,7 +120,7 @@
                 </div>
             </div>
 
-            <!-- SECCIÓN CUPONES -->
+            <!-- FORMULARIO CUPONES -->
             <form method="get" style="margin-top: 25px; display: flex; gap: 0;">
                 <input type="text" name="cupon" placeholder="Código Cupón" value="{{ cupon|default:'' }}" 
                        style="padding: 10px; width: 150px; border: 1px solid #ccc; border-radius: 4px 0 0 4px; border-right: none;">
@@ -78,22 +128,20 @@
                     APLICAR
                 </button>
             </form>
-            {% if cupon %}
+            
+            {% if cupon and descuento > 0 %}
                 <small style="margin-top: 5px; color: #666;">
                     Cupón aplicado: <strong>{{ cupon }}</strong> 
-                    <a href="{% url 'carrito' %}" style="color: red; text-decoration: none; margin-left: 5px;">(Quitar)</a>
+                    <a href="{% url 'carrito' %}" style="color: #d32f2f; text-decoration: none; margin-left: 5px; font-weight: bold;">(✖ Quitar)</a>
                 </small>
             {% endif %}
 
             <!-- BOTÓN DE PAGO -->
             <div style="margin-top: 30px; width: 300px;">
                 {% if user.is_authenticated %}
-                    <form method="post" action="{% url 'procesar_compra' %}">
-                        {% csrf_token %}
-                        <button type="submit" class="btn" style="width: 100%; font-size: 1.1rem; padding: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                            PAGAR AHORA
-                        </button>
-                    </form>
+                    <a href="{% url 'vista_pago' %}" class="btn" style="display: block; width: 100%; text-align: center; text-decoration: none; padding: 15px; font-size: 1.1rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: transform 0.2s;">
+                        💳 PAGAR AHORA
+                    </a>
                 {% else %}
                     <a href="{% url 'login' %}?next={% url 'carrito' %}" class="btn" style="display: block; text-align: center; background: var(--secundario);">
                         INICIA SESIÓN PARA PAGAR
@@ -111,4 +159,11 @@
         <a href="{% url 'catalogo' %}" class="btn">IR A LA TIENDA</a>
     </div>
 {% endif %}
+
+<style>
+    /* Estilo hover para botones +/- */
+    a[href*="actualizar_carrito"]:hover {
+        background: #e0e0e0 !important;
+    }
+</style>
 {% endblock %}

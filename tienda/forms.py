@@ -7,7 +7,16 @@ from .models import ViniloMusical, CuponDescuento
 class ViniloForm(forms.ModelForm):
     class Meta:
         model = ViniloMusical
-        fields = ['tituloDisco', 'artistaPrincipal', 'precioUnitario', 'stockDisponible', 'categoria', 'imagenPortada', 'imagenUrl', 'esNuevo', 'aceptaDevolucion']
+        fields = ['tituloDisco', 
+                  'artistaPrincipal', 
+                  'precioUnitario', 
+                  'stockDisponible', 
+                  'categoria',
+                  'porcentajeDescuento',
+                  'imagenPortada', 
+                  'imagenUrl', 
+                  'esNuevo', 
+                  'aceptaDevolucion']
         
         # AQUÍ ESTÁ LA MAGIA PARA SEPARAR PALABRAS
         labels = {
@@ -16,6 +25,7 @@ class ViniloForm(forms.ModelForm):
             'precioUnitario': 'Precio de Venta ($)',
             'stockDisponible': 'Stock Disponible',
             'categoria': 'Género Musical (Elegir o Escribir)',
+            'porcentajeDescuento': 'Descuento Individual (%)',
             'imagenPortada': 'Subir Portada (Archivo)',
             'imagenUrl': 'O pegar URL de imagen',
             'esNuevo': '¿Es nuevo?',

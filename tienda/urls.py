@@ -32,5 +32,13 @@ urlpatterns = [
     path('inventario/editar/<int:producto_id>/', views.editarProducto, name='editar_producto'),
     path('inventario/eliminar/<int:producto_id>/', views.eliminarProducto, name='eliminar_producto'),
     path('inventario/reactivar/<int:producto_id>/', views.reactivarProducto, name='reactivar_producto'),
+    path('carrito/actualizar/<int:producto_id>/<str:accion>/', views.actualizarCarrito, name='actualizar_carrito'),
+
+    # Logística
+    path('checkout/pago/', views.vistaPago, name='vista_pago'), # Pantalla tarjeta
+    path('orden/factura/<int:orden_id>/', views.verFactura, name='ver_factura'), # PDF/HTML
+    path('finanzas/destacar-cupon/<int:cupon_id>/', views.destacarCupon, name='destacar_cupon'),
+    path('bodega/pedidos/', views.gestionPedidosBodega, name='pedidos_bodega'),
+    path('bodega/pedidos/actualizar/<int:orden_id>/', views.actualizarEstadoEnvio, name='actualizar_envio'),
 
 ]

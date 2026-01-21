@@ -1,19 +1,30 @@
 {% extends 'tienda/base.html' %}
 
 {% block content %}
-<!-- CABECERA -->
+<!-- CABECERA DE ACCIONES -->
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 2px solid var(--secundario); padding-bottom: 20px;">
     <div>
-        <h2 style="margin: 0; color: var(--secundario);">Gestión de Inventario</h2>
-        <p style="margin: 5px 0 0 0; color: #666; font-size: 0.9rem;">Control de stock y catálogo.</p>
+        <h2 style="margin: 0; color: var(--secundario);">Panel de Bodega</h2>
+        <p style="margin: 5px 0 0 0; color: #666; font-size: 0.9rem;">Gestión de existencias y logística.</p>
     </div>
-    <a href="{% url 'agregar_producto' %}" class="btn">
-        + NUEVO PRODUCTO
-    </a>
+    
+    <div style="display: flex; gap: 15px;">
+        <!-- BOTÓN NUEVO: IR A GESTIÓN DE ENVÍOS -->
+        <a href="{% url 'pedidos_bodega' %}" class="btn" style="background: #1976d2; display: flex; align-items: center; gap: 8px;">
+            📦 GESTIONAR ENVÍOS
+        </a>
+
+        <!-- BOTÓN INVENTARIO -->
+        <a href="{% url 'agregar_producto' %}" class="btn" style="display: flex; align-items: center; gap: 8px;">
+            + NUEVO PRODUCTO
+        </a>
+    </div>
 </div>
 
-<!-- TABLA -->
+<!-- TABLA INVENTARIO -->
 <div style="background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); overflow-x: auto;">
+    <h3 style="margin-top: 0; margin-bottom: 20px; color: #666;">Inventario Actual</h3>
+    
     <table style="width: 100%; border-collapse: collapse; min-width: 800px;">
         <thead>
             <tr style="background: var(--secundario); color: #fff; text-transform: uppercase; font-size: 0.85rem;">
@@ -28,7 +39,6 @@
         </thead>
         <tbody>
             {% for item in inventario %}
-            <!-- Fila del producto -->
             <tr style="border-bottom: 1px solid #eee; {% if not item.activo %}background-color: #ffebee; color: #888;{% endif %}">
                 
                 <td style="padding: 15px; font-weight: bold;">#{{ item.id }}</td>
@@ -60,6 +70,9 @@
                 
                 <td style="padding: 15px; text-align: right;">
                     ${{ item.precioUnitario }}
+                    {% if item.porcentajeDescuento > 0 %}
+                        <br><small style="color: #d32f2f;">(-{{ item.porcentajeDescuento }}%)</small>
+                    {% endif %}
                 </td>
                 
                 <td style="padding: 15px; text-align: center;">

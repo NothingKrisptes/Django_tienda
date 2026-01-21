@@ -35,29 +35,86 @@
         <h3 style="color: var(--secundario); margin-top: 0;">Mis Pedidos</h3>
         {% if ordenes %}
             {% for orden in ordenes %}
-            <div style="background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #eee;">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;">
+            <div style="background: #fff; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 20px; overflow: hidden;">
+                <!-- CABECERA DE LA ORDEN -->
+                <div style="background: #f9f9f9; padding: 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee;">
                     <div>
-                        <strong>Orden #{{ orden.id }}</strong><br>
-                        <small style="color: #999;">{{ orden.fechaCompra|date:"d M Y, H:i" }}</small>
+                        <strong style="color: var(--secundario);">ORDEN #{{ orden.id }}</strong>
+                        <div style="font-size: 0.85rem; color: #666;">{{ orden.fechaCompra|date:"d M Y, H:i" }}</div>
                     </div>
                     <div style="text-align: right;">
-                        <span style="font-weight: bold; font-size: 1.2rem;">${{ orden.totalFinal }}</span><br>
-                        <span style="background: #e8f5e9; color: green; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem;">{{ orden.estadoOrden }}</span>
+                        <div style="font-size: 1.2rem; font-weight: bold;">${{ orden.totalFinal }}</div>
+                        
+                        <!-- ESTADO DE PAGO -->
+                        {% if orden.estadoOrden == 'DEVUELTO' %}
+                            <span style="background: #ffebee; color: #c62828; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold;">REEMBOLSADO</span>
+                        {% else %}
+                            <span style="background: #e8f5e9; color: #2e7d32; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold;">PAGADO</span>
+                        {% endif %}
                     </div>
                 </div>
-                
-                <!-- Detalles ocultos/simples -->
-                <div style="font-size: 0.9rem; color: #555;">
-                    {% for detalle in orden.detalles.all %}
-                        <div>• {{ detalle.cantidad }}x {{ detalle.producto.tituloDisco }}</div>
-                    {% endfor %}
-                </div>
-                
-                <div style="margin-top: 15px; text-align: right;">
-                    <a href="#" style="color: var(--acento); font-size: 0.9rem; text-decoration: none;">📄 Descargar Factura (Simulado)</a>
+
+                <!-- CUERPO Y TRACKING -->
+                <div style="padding: 20px;">
+                    
+                    <!-- BARRA DE PROGRESO DE ENVÍO -->
+                    {% if orden.estadoOrden != 'DEVUELTO' %}
+                    <div style="margin-bottom: 20px; padding: 15px; background: #f0f7ff; border-radius: 6px; border: 1px solid #d0e4ff;">
+                        <h4 style="margin-top: 0; color: #0d47a1; font-size: 0.9rem;">📦 ESTADO DEL ENVÍO:</h4>
+                        
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; font-size: 1.2rem;">
+                            <!-- ÍCONO DINÁMICO -->
+                            {% if orden.estadoEntrega == 'REVISION' %}
+                                <span>⏳ <strong style="color: #f57c00;">En Revisión</strong></span>
+                                <small style="color: #666; font-size: 0.8rem;">Bodega está verificando tu pago.</small>
+                            
+                            {% elif orden.estadoEntrega == 'PREPARANDO' %}
+                                <span>📦 <strong style="color: #1976d2;">Preparando Paquete</strong></span>
+                                <small style="color: #666; font-size: 0.8rem;">Embalando tus vinilos con cuidado.</small>
+                            
+                            {% elif orden.estadoEntrega == 'EN_CAMINO' %}
+                                <span>🚚 <strong style="color: #2e7d32;">En Camino</strong></span>
+                                <small style="color: #666; font-size: 0.8rem;">¡Llegará pronto!</small>
+                            
+                            {% elif orden.estadoEntrega == 'ENTREGADO' %}
+                                <span>✅ <strong style="color: #388e3c;">Entregado</strong></span>
+                                <small style="color: #666; font-size: 0.8rem;">Disfruta tu música.</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- LISTA DE PRODUCTOS -->
+                    <ul style="list-style: none; padding: 0;">
+                        {% for item in orden.detalles.all %}
+                            <li style="padding: 5px 0; border-bottom: 1px dashed #eee; display: flex; justify-content: space-between;">
+                                <span>{{ item.cantidad }}x <strong>{{ item.producto.tituloDisco }}</strong></span>
+                                <span>${{ item.precioUnitarioHistorico }}</span>
+                            </li>
+                        {% endfor %}
+                    </ul>
+
+                    <!-- BOTONES DE ACCIÓN (FACTURA Y DEVOLUCIÓN) -->
+                    <div style="margin-top: 20px; display: flex; gap: 15px; justify-content: flex-end;">
+                        
+                        <!-- Botón Factura -->
+                        <a href="{% url 'ver_factura' orden.id %}" target="_blank" class="btn" style="background: #fff; color: #333; border: 1px solid #ccc; font-size: 0.8rem;">
+                            📄 Descargar Factura
+                        </a>
+
+                        <!-- Botón Devolución (Solo si aplica) -->
+                        {% if orden.puedeDevolver and orden.estadoOrden != 'DEVUELTO' %}
+                            <a href="{% url 'devolver_orden' orden.id %}" 
+                            onclick="return confirm('¿Seguro que deseas devolver este pedido? El dinero será reembolsado a tu tarjeta.')"
+                            class="btn" style="background: #fff; color: #d32f2f; border: 1px solid #ef9a9a; font-size: 0.8rem;">
+                            ↩ Solicitar Devolución
+                            </a>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
+            {% empty %}
+                <p>Aún no has realizado compras.</p>
             {% endfor %}
         {% else %}
             <div style="background: #fff; padding: 40px; text-align: center; border-radius: 8px;">
