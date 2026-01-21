@@ -30,11 +30,19 @@ def esBodeguero(user): return user.is_superuser or user.groups.filter(name='Bode
 
 def vistaInicio(request):
     """Muestra productos y banner de oferta"""
-    # Solo productos activos y con stock
     discosRecientes = ViniloMusical.objects.filter(stockDisponible__gt=0, activo=True).order_by('-id')[:4]
     
-    # Buscar el MEJOR cupón activo para mostrar en el banner
-    cuponDestacado = CuponDescuento.objects.filter(activo=True).order_by('-porcentajeDescuento').first()
+    # Buscar cupón de banner
+    cuponDestacado = CuponDescuento.objects.filter(es_banner=True, activo=True).first()
+    
+    # DEBUG TEMPORAL
+    print(f"🔍 DEBUG: Cupón encontrado = {cuponDestacado}")
+    if cuponDestacado:
+        print(f"   - Código: {cuponDestacado.codigoCupon}")
+        print(f"   - es_banner: {cuponDestacado.es_banner}")
+        print(f"   - activo: {cuponDestacado.activo}")
+    else:
+        print("   ⚠️ No se encontró ningún cupón con es_banner=True")
     
     return render(request, 'tienda/inicio.html', {
         'discos': discosRecientes, 
@@ -272,34 +280,64 @@ def solicitarDevolucion(request, orden_id):
 
 @user_passes_test(esFinanzas)
 def dashboardFinanzas(request):
-    form_cupon = CuponForm()
+    
+    # DEBUG: Ver si detecta el POST
+    print(f"🔍 Método: {request.method}")
+    if request.method == "POST":
+        print(f"🔍 POST data: {request.POST}")
+        print(f"🔍 btn_iva presente: {'btn_iva' in request.POST}")
     
     if request.method == "POST":
+        # CAMBIAR IVA
         if 'btn_iva' in request.POST:
+            print("✅ Detectado cambio de IVA")
             nuevoIva = request.POST.get('nuevo_iva')
-            config = ConfiguracionFiscal.objects.first() or ConfiguracionFiscal()
-            config.valorIva = float(nuevoIva)
-            config.save()
-            registrarLog(request.user, f"Actualizó IVA a {nuevoIva}")
-            messages.success(request, "Configuración fiscal actualizada")
+            print(f"📊 Nuevo IVA recibido: {nuevoIva}")
             
-        elif 'btn_cupon' in request.POST:
-            form_cupon = CuponForm(request.POST)
-            if form_cupon.is_valid():
-                c = form_cupon.save()
-                registrarLog(request.user, f"Creó cupón {c.codigoCupon}")
-                messages.success(request, "Cupón de descuento creado")
-                return redirect('finanzas')
+            try:
+                nuevo_valor = Decimal(nuevoIva)
+                
+                # Validación
+                if nuevo_valor <= 0 or nuevo_valor >= 1:
+                    messages.error(request, "⚠️ El IVA debe estar entre 0.01 y 0.99")
+                    return redirect('finanzas')
+                
+                config, created = ConfiguracionFiscal.objects.get_or_create(pk=1)
+                iva_anterior = config.valorIva
+                config.valorIva = nuevo_valor
+                config.save()
+                
+                print(f"💾 IVA guardado: {config.valorIva}")
+                
+                registrarLog(request.user, f"Actualizó IVA: {float(iva_anterior)*100:.0f}% → {float(nuevo_valor)*100:.0f}%")
+                messages.success(request, f"✅ IVA actualizado: {float(iva_anterior)*100:.0f}% → {float(nuevo_valor)*100:.0f}%")
+                
+            except Exception as e:
+                print(f"❌ ERROR: {str(e)}")
+                messages.error(request, f"Error: {str(e)}")
+            
+            return redirect('finanzas')
 
-    ingresos = sum(o.totalFinal for o in OrdenVenta.objects.filter(estadoOrden='PAGADO'))
-    config = ConfiguracionFiscal.obtenerIvaActual()
+    # Resto del código (KPIs, cupones, etc.)
+    ordenes_pagadas = OrdenVenta.objects.filter(estadoOrden='PAGADO')
+    ingresos = sum(o.totalFinal for o in ordenes_pagadas) or Decimal('0')
+    total_descuentos_dados = sum(o.valorDescuento for o in ordenes_pagadas) or Decimal('0')
+    egresos_estimados = ingresos * Decimal('0.4')
+    utilidad_neta = ingresos - egresos_estimados
     cupones = CuponDescuento.objects.all().order_by('-id')
     
+    config = ConfiguracionFiscal.objects.first()
+    iva_decimal = config.valorIva if config else Decimal('0.12')
+    iva_porcentaje = float(iva_decimal) * 100
+    
     return render(request, 'tienda/dashboard_finanzas.html', {
-        'ingresos': ingresos, 
-        'iva_actual': config, 
-        'form_cupon': form_cupon, 
-        'cupones': cupones
+        'ingresos': ingresos,
+        'descuentos_total': total_descuentos_dados,
+        'egresos': egresos_estimados,
+        'utilidad': utilidad_neta,
+        'cupones': cupones,
+        'iva_actual': iva_porcentaje,
+        'form_cupon': CuponForm()
     })
 
 @user_passes_test(esBodeguero)
@@ -446,33 +484,6 @@ def destacarCupon(request, cupon_id):
     messages.success(request, f"Cupón {c.codigoCupon} ahora es el principal.")
     return redirect('finanzas')
 
-@user_passes_test(esFinanzas)
-def dashboardFinanzas(request):
-    # ... (Lógica de crear cupón y cambiar IVA igual que antes) ...
-
-    # KPIs REALES
-    ordenes_pagadas = OrdenVenta.objects.filter(estadoOrden='PAGADO')
-    ingresos = sum(o.totalFinal for o in ordenes_pagadas)
-    total_descuentos_dados = sum(o.valorDescuento for o in ordenes_pagadas)
-    
-    # Simulación de Egresos (ej: 40% de los ingresos son costos)
-    egresos_estimados = ingresos * Decimal('0.4')
-    utilidad_neta = ingresos - egresos_estimados
-
-    cupones = CuponDescuento.objects.all().order_by('-id')
-    
-    # Importante: Buscamos el cupón activo para el banner
-    # En vistaInicio usamos: CuponDescuento.objects.filter(es_banner=True, activo=True).first()
-
-    return render(request, 'tienda/dashboard_finanzas.html', {
-        'ingresos': ingresos,
-        'descuentos_total': total_descuentos_dados,
-        'egresos': egresos_estimados,
-        'utilidad': utilidad_neta,
-        'cupones': cupones,
-        # ... forms ...
-    })
-
 # --- FACTURACIÓN Y DEVOLUCIONES ---
 
 @login_required
@@ -617,29 +628,27 @@ def reporteFinanzasPDF(request):
     
     # Fechas
     fecha_hoy = datetime.now().strftime('%d/%m/%Y')
-    fecha_hace_7 = (datetime.now() - timedelta(days=7)).strftime('%d/%m/%Y')
     
-    elementos.append(Paragraph(f"<b>Período:</b> {fecha_hace_7} al {fecha_hoy}", estilos['Normal']))
+    elementos.append(Paragraph(f"<b>Fecha de Generación:</b> {fecha_hoy}", estilos['Normal']))
     elementos.append(Spacer(1, 0.2*inch))
     
-    # Datos financieros
-    ordenes_completadas = OrdenVenta.objects.filter(
-        estadoOrden='ENTREGADO',
-        fechaCompra__gte=datetime.now() - timedelta(days=7)
-    )
+    # CAMBIO AQUÍ: Usar PAGADO en lugar de ENTREGADO para incluir todas las ventas
+    ordenes_completadas = OrdenVenta.objects.filter(estadoOrden='PAGADO')
     
     ingresos_brutos = ordenes_completadas.aggregate(Sum('totalFinal'))['totalFinal__sum'] or 0
+    total_descuentos = ordenes_completadas.aggregate(Sum('valorDescuento'))['valorDescuento__sum'] or 0
     total_ordenes = ordenes_completadas.count()
     ticket_promedio = ingresos_brutos / total_ordenes if total_ordenes > 0 else 0
     
-    # Tabla de métricas
+    utilidad_estimada = ingresos_brutos * Decimal('0.6') if ingresos_brutos else Decimal('0')
+
     datos_metricas = [
         ['Métrica', 'Valor'],
-        ['Ingresos Brutos (7 días)', f'${ingresos_brutos:.2f}'],
+        ['Ingresos Brutos', f'${ingresos_brutos:.2f}'],
         ['Órdenes Completadas', f'{total_ordenes}'],
         ['Ticket Promedio', f'${ticket_promedio:.2f}'],
-        ['Descuentos Aplicados', f'${ordenes_completadas.aggregate(Sum("montoDescuento"))["montoDescuento__sum"] or 0:.2f}'],
-        ['Reembolsos', f'${ordenes_completadas.aggregate(Sum("montoReembolsado"))["montoReembolsado__sum"] or 0:.2f}'],
+        ['Descuentos Aplicados', f'${total_descuentos:.2f}'],
+        ['Utilidad Estimada (60%)', f'${utilidad_estimada:.2f}'],
     ]
     
     tabla_metricas = Table(datos_metricas, colWidths=[3*inch, 2*inch])
@@ -655,26 +664,27 @@ def reporteFinanzasPDF(request):
     ]))
     
     elementos.append(tabla_metricas)
-    elementos.append(PageBreak())
+    elementos.append(Spacer(1, 0.3*inch))
     
     # Detalle de órdenes
-    elementos.append(Paragraph("<b>Detalle de Órdenes:</b>", estilos['Heading2']))
+    elementos.append(Paragraph("<b>Últimas 15 Órdenes:</b>", estilos['Heading2']))
     elementos.append(Spacer(1, 0.2*inch))
     
     datos_ordenes = [
-        ['Orden', 'Cliente', 'Total', 'Descuento', 'Estado']
+        ['Orden', 'Cliente', 'Fecha', 'Total', 'Descuento']
     ]
     
-    for orden in ordenes_completadas[:15]:  # Primeras 15
+    for orden in ordenes_completadas.order_by('-fechaCompra')[:15]:
+        cliente_nombre = orden.cliente.get_full_name() or orden.cliente.username
         datos_ordenes.append([
             f'#{orden.id}',
-            orden.cliente.first_name[:15],
+            cliente_nombre[:20],
+            orden.fechaCompra.strftime('%d/%m/%Y'),
             f'${orden.totalFinal:.2f}',
-            f'${orden.montoDescuento:.2f}',
-            orden.get_estadoOrden_display()
+            f'${orden.valorDescuento:.2f}'
         ])
     
-    tabla_ordenes = Table(datos_ordenes, colWidths=[0.8*inch, 1.5*inch, 1.2*inch, 1.2*inch, 1.3*inch])
+    tabla_ordenes = Table(datos_ordenes, colWidths=[0.8*inch, 1.8*inch, 1*inch, 1*inch, 1*inch])
     tabla_ordenes.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1976d2')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
@@ -688,14 +698,13 @@ def reporteFinanzasPDF(request):
     
     # Pie de página
     elementos.append(Spacer(1, 0.3*inch))
-    elementos.append(Paragraph(f"Generado: {datetime.now().strftime('%d/%m/%Y %H:%M')}", estilos['Normal']))
+    elementos.append(Paragraph(f"<i>Generado: {datetime.now().strftime('%d/%m/%Y %H:%M')}</i>", estilos['Normal']))
     
     # Generar PDF
     doc.build(elementos)
     buffer.seek(0)
     
     return FileResponse(buffer, as_attachment=True, filename=f"Reporte_Finanzas_{datetime.now().strftime('%d%m%Y')}.pdf")
-
 
 @login_required
 def reporteBodegaPDF(request):
@@ -717,8 +726,8 @@ def reporteBodegaPDF(request):
     elementos.append(Paragraph(f"<b>Fecha:</b> {datetime.now().strftime('%d/%m/%Y %H:%M')}", estilos['Normal']))
     elementos.append(Spacer(1, 0.2*inch))
     
-    # Datos de inventario
-    productos = Producto.objects.filter(activo=True)
+    # CAMBIO AQUÍ: Usar ViniloMusical en lugar de Producto
+    productos = ViniloMusical.objects.filter(activo=True)
     
     datos_inventario = [
         ['ID', 'Producto', 'Categoría', 'Stock', 'Precio', 'Estado']
@@ -737,7 +746,7 @@ def reporteBodegaPDF(request):
     
     tabla_inventario = Table(datos_inventario, colWidths=[0.5*inch, 1.8*inch, 1.2*inch, 0.8*inch, 1*inch, 0.9*inch])
     tabla_inventario.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#c1471b')),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#264653')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('FONTSIZE', (0, 0), (-1, 0), 10),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),

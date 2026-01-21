@@ -10,7 +10,6 @@
             <p style="margin: 5px 0 0 0; color: #666; font-size: 1rem;">Resumen de ingresos, utilidades y gestión de promociones.</p>
         </div>
         
-        <!-- BOTÓN DESCARGAR REPORTE -->
         <a href="{% url 'reporte_finanzas_pdf' %}" class="btn" style="background: #2ecc71; color: white; display: flex; align-items: center; gap: 10px; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: bold; transition: background 0.3s;">
             <span style="font-size: 1.2rem;">📄</span> Descargar Reporte PDF
         </a>
@@ -19,7 +18,6 @@
     <!-- TARJETAS DE INDICADORES (KPIs) -->
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 25px; margin-bottom: 40px;">
         
-        <!-- INGRESOS BRUTOS -->
         <div style="background: #e8f5e9; padding: 25px; border-radius: 10px; text-align: center; border: 1px solid #c8e6c9; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
             <h3 style="margin: 0 0 10px 0; color: #2e7d32; font-size: 1rem; text-transform: uppercase; letter-spacing: 1px;">Ingresos Brutos</h3>
             <p style="font-size: 2rem; font-weight: 800; color: #1b5e20; margin: 0;">
@@ -27,7 +25,6 @@
             </p>
         </div>
 
-        <!-- COSTOS ESTIMADOS -->
         <div style="background: #ffebee; padding: 25px; border-radius: 10px; text-align: center; border: 1px solid #ffcdd2; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
             <h3 style="margin: 0 0 10px 0; color: #c62828; font-size: 1rem; text-transform: uppercase; letter-spacing: 1px;">Costos (Est. 40%)</h3>
             <p style="font-size: 2rem; font-weight: 800; color: #b71c1c; margin: 0;">
@@ -35,7 +32,6 @@
             </p>
         </div>
 
-        <!-- DESCUENTOS OTORGADOS -->
         <div style="background: #e3f2fd; padding: 25px; border-radius: 10px; text-align: center; border: 1px solid #bbdefb; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
             <h3 style="margin: 0 0 10px 0; color: #1565c0; font-size: 1rem; text-transform: uppercase; letter-spacing: 1px;">Desc. Otorgados</h3>
             <p style="font-size: 2rem; font-weight: 800; color: #0d47a1; margin: 0;">
@@ -43,7 +39,6 @@
             </p>
         </div>
 
-        <!-- UTILIDAD NETA -->
         <div style="background: #fff3e0; padding: 25px; border-radius: 10px; text-align: center; border: 1px solid #ffe0b2; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
             <h3 style="margin: 0 0 10px 0; color: #ef6c00; font-size: 1rem; text-transform: uppercase; letter-spacing: 1px;">Utilidad Neta</h3>
             <p style="font-size: 2rem; font-weight: 800; color: #e65100; margin: 0;">
@@ -52,22 +47,52 @@
         </div>
     </div>
 
+    <!-- SECCIÓN DE CONFIGURACIÓN FISCAL (IVA) -->
+    <div style="background: #fff; padding: 25px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 30px; border-left: 4px solid #ff9800;">
+        <h3 style="margin-top: 0; color: var(--secundario);">⚙️ Configuración Fiscal (IVA)</h3>
+        
+        <div style="display: flex; align-items: center; gap: 20px;">
+            <div style="flex: 1;">
+                <p style="margin: 0; color: #666; font-size: 0.95rem;">Tasa de IVA Actual:</p>
+                <p style="font-size: 1.8rem; font-weight: bold; color: #ff9800; margin: 5px 0;">
+                    {{ iva_actual|floatformat:2 }}%
+                </p>
+            </div>
+
+            <form method="post" style="flex: 2; display: flex; gap: 15px; align-items: flex-end;">
+                {% csrf_token %}
+                <div style="flex: 1;">
+                    <label style="display: block; font-weight: bold; color: #555; margin-bottom: 5px; font-size: 0.9rem;">Nueva Tasa (Decimal):</label>
+                    <input type="number" 
+                        step="0.01" 
+                        min="0.01" 
+                        max="0.99" 
+                        name="nuevo_iva" 
+                        placeholder="Ej: 0.15 para 15%" 
+                        required 
+                        style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 1rem;">
+                    <small style="color: #888; font-size: 0.85rem;">Ingresa 0.15 para 15%, 0.12 para 12%</small>
+                </div>
+                <button type="submit" name="btn_iva" class="btn" style="background: #ff9800; color: white; padding: 10px 25px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                    ACTUALIZAR IVA
+                </button>
+            </form>
+        </div>
+    </div>
+
     <!-- SECCIÓN DE GESTIÓN DE CUPONES -->
     <div style="background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.08); border: 1px solid #eee;">
         
-        <!-- Encabezado de Sección -->
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid #f0f0f0;">
             <h3 style="margin: 0; color: var(--secundario); display: flex; align-items: center; gap: 10px;">
                 🎟️ Gestión de Cupones y Banner
             </h3>
             
-            <!-- BOTÓN CREAR CUPÓN -->
             <a href="{% url 'crear_cupon' %}" class="btn" style="background: var(--secundario); color: white; padding: 10px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; transition: background 0.2s;">
                 + CREAR NUEVO CUPÓN
             </a>
         </div>
 
-        <!-- TABLA DE CUPONES -->
         <div style="overflow-x: auto;">
             <table style="width: 100%; border-collapse: separate; border-spacing: 0;">
                 <thead>
@@ -83,7 +108,7 @@
                     {% for cupon in cupones %}
                     <tr style="border-bottom: 1px solid #eee; transition: background 0.2s;">
                         <td style="padding: 15px; font-weight: bold; color: #333;">{{ cupon.codigoCupon }}</td>
-                        <td style="padding: 15px; color: #666;">{{ cupon.porcentajeDescuento|floatformat:2 }}%</td>
+                        <td style="padding: 15px; color: #666;">{% widthratio cupon.porcentajeDescuento 1 100 %}%</td>
                         <td style="padding: 15px; text-align: center;">
                             {% if cupon.activo %}
                                 <span style="background: #e8f5e9; color: #2e7d32; padding: 4px 10px; border-radius: 20px; font-size: 0.85rem; font-weight: bold;">ACTIVO</span>
@@ -99,7 +124,6 @@
                             {% endif %}
                         </td>
                         <td style="padding: 15px; text-align: right;">
-                            <!-- BOTONES DE EDITAR Y ELIMINAR -->
                             <a href="{% url 'editar_cupon' cupon.id %}" style="color: #1976d2; text-decoration: none; font-weight: bold; font-size: 0.9rem; margin-right: 15px;">
                                 ✏️ Editar
                             </a>
@@ -125,7 +149,6 @@
 </div>
 
 <style>
-    /* Efecto hover suave para las filas de la tabla */
     tbody tr:hover {
         background-color: #fafafa;
     }
