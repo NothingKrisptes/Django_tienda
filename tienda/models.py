@@ -33,15 +33,28 @@ class LogAuditoria(models.Model):
 class ViniloMusical(models.Model):
     tituloDisco = models.CharField(max_length=200)
     artistaPrincipal = models.CharField(max_length=200)
-    precioUnitario = models.DecimalField(max_digits=10, decimal_places=2)
+    precioUnitario = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2,
+        help_text="Precio CON IVA incluido (Ley Ecuador)"
+    )
     stockDisponible = models.IntegerField(default=0)
     # Campo nuevo para ofertas individuales
-    porcentajeDescuento = models.IntegerField(default=0, verbose_name="Descuento (%)", help_text="0 para precio normal")
+    porcentajeDescuento = models.IntegerField(
+        default=0, 
+        verbose_name="Descuento (%)", 
+        help_text="0 para precio normal"
+    )
     # Baja Lógica
     activo = models.BooleanField(default=True, verbose_name="¿Activo en Tienda?")
     # Imágenes (Híbrido)
     imagenPortada = models.ImageField(upload_to='portadas/', blank=True, null=True)
-    imagenUrl = models.URLField(max_length=500, blank=True, null=True, verbose_name="URL de Imagen (Opcional)")
+    imagenUrl = models.URLField(
+        max_length=500, 
+        blank=True, 
+        null=True, 
+        verbose_name="URL de Imagen (Opcional)"
+    )
     # Categoría simple (sin relación)
     categoria = models.CharField(max_length=100, verbose_name="Género Musical")
     # Reglas de negocio
@@ -60,14 +73,11 @@ class ViniloMusical(models.Model):
         help_text="Una por línea o separadas por comas"
     )
     
-    def obtenerAhorro(self):
-        """Calcula cuánto dinero ahorra el cliente"""
-        if self.porcentajeDescuento > 0:
-            return self.precioUnitario - self.obtenerPrecioFinal()
-        return 0
-
     def obtenerPrecioFinal(self):
-        """Calcula el precio real si tiene descuento individual"""
+        """
+        Calcula el precio final con descuento individual aplicado.
+        IMPORTANTE: El precioUnitario YA incluye IVA (Ley Ecuador).
+        """
         if self.porcentajeDescuento > 0:
             # Convertimos el factor de descuento a Decimal
             factor = Decimal(self.porcentajeDescuento) / Decimal(100)
@@ -75,9 +85,43 @@ class ViniloMusical(models.Model):
             return self.precioUnitario - montoDesc
         return self.precioUnitario
     
-    def __str__(self): return self.tituloDisco
-
+    def obtenerAhorro(self):
+        """
+        Calcula cuánto dinero ahorra el cliente con el descuento individual.
+        Útil para mostrar "Ahorras: $X.XX"
+        """
+        if self.porcentajeDescuento > 0:
+            return self.precioUnitario - self.obtenerPrecioFinal()
+        return Decimal('0')
     
+    def obtenerPrecioSinIva(self):
+        """
+        Calcula el precio base sin IVA (solo para reportes internos y facturas).
+        El precio al público SIEMPRE incluye IVA.
+        """
+        iva = ConfiguracionFiscal.obtenerIvaActual()
+        factor_iva = Decimal('1') + iva
+        precio_final = self.obtenerPrecioFinal()
+        return precio_final / factor_iva
+    
+    def obtenerMontoIva(self):
+        """
+        Calcula cuánto IVA está incluido en el precio final.
+        Útil para desgloses en facturas.
+        """
+        precio_final = self.obtenerPrecioFinal()
+        precio_sin_iva = self.obtenerPrecioSinIva()
+        return precio_final - precio_sin_iva
+    
+    def __str__(self):
+        return self.tituloDisco
+    
+    class Meta:
+        verbose_name = "Vinilo Musical"
+        verbose_name_plural = "Vinilos Musicales"
+        ordering = ['-id']
+
+# --- CUPONES DE DESCUENTO ---
 
 class CuponDescuento(models.Model):
     codigoCupon = models.CharField(max_length=20, unique=True)
@@ -145,4 +189,38 @@ class DetalleOrden(models.Model):
     cantidad = models.IntegerField(default=1)
     precioUnitarioHistorico = models.DecimalField(max_digits=10, decimal_places=2)
 
-
+# --- SISTEMA DE DEVOLUCIONES CON APROBACIÓN ---
+class SolicitudDevolucion(models.Model):
+    ESTADO_CHOICES = [
+        ('PENDIENTE', '⏳ Pendiente de Revisión Bodega'),
+        ('APROBADA_BODEGA', '📦 Aprobada por Bodega - Pendiente Finanzas'),
+        ('RECHAZADA_BODEGA', '❌ Rechazada por Bodega'),
+        ('APROBADA_FINANZAS', '✅ Aprobada - Reembolso Procesado'),
+        ('RECHAZADA_FINANZAS', '❌ Rechazada por Finanzas'),
+    ]
+    
+    orden = models.ForeignKey(OrdenVenta, on_delete=models.CASCADE, related_name='solicitudes_devolucion')
+    cliente = models.ForeignKey(User, on_delete=models.CASCADE, related_name='mis_solicitudes')
+    motivoCliente = models.TextField(verbose_name="Motivo del Cliente")
+    fechaSolicitud = models.DateTimeField(auto_now_add=True)
+    estadoSolicitud = models.CharField(max_length=30, choices=ESTADO_CHOICES, default='PENDIENTE')
+    
+    # Aprobación BODEGA (Paso 1)
+    revisadoPorBodega = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='devoluciones_bodega')
+    fechaRevisionBodega = models.DateTimeField(null=True, blank=True)
+    observacionesBodega = models.TextField(blank=True, verbose_name="Observaciones Bodega")
+    estadoFisico = models.CharField(max_length=100, blank=True, verbose_name="Estado Físico del Producto")
+    
+    # Aprobación FINANZAS (Paso 2)
+    revisadoPorFinanzas = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='devoluciones_finanzas')
+    fechaRevisionFinanzas = models.DateTimeField(null=True, blank=True)
+    observacionesFinanzas = models.TextField(blank=True, verbose_name="Observaciones Finanzas")
+    montoReembolsado = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    class Meta:
+        ordering = ['-fechaSolicitud']
+        verbose_name = "Solicitud de Devolución"
+        verbose_name_plural = "Solicitudes de Devolución"
+    
+    def __str__(self):
+        return f"Solicitud #{self.id} - Orden #{self.orden.id} ({self.get_estadoSolicitud_display()})"

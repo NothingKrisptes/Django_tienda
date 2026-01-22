@@ -1,0 +1,86 @@
+{% extends 'tienda/base.html' %}
+
+{% block content %}
+<div style="max-width: 700px; margin: 40px auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+    
+    <!-- ENCABEZADO -->
+    <div style="text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #f0f0f0;">
+        <h2 style="margin: 0; color: var(--secundario); font-size: 1.8rem;">📦 Solicitar Devolución</h2>
+        <p style="margin: 10px 0 0 0; color: #666; font-size: 0.95rem;">Orden #{{ orden.id }}</p>
+    </div>
+
+    <!-- INFORMACIÓN DE LA ORDEN -->
+    <div style="background: #f9f9f9; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
+        <h3 style="margin: 0 0 15px 0; color: #333; font-size: 1.1rem;">Detalles de tu orden:</h3>
+        
+        <div style="margin-bottom: 15px;">
+            <p style="margin: 0; color: #666; font-size: 0.9rem;">
+                <strong>Fecha de compra:</strong> {{ orden.fechaCompra|date:'d/m/Y H:i' }}
+            </p>
+            <p style="margin: 5px 0 0 0; color: #666; font-size: 0.9rem;">
+                <strong>Total pagado:</strong> ${{ orden.totalFinal }}
+            </p>
+        </div>
+
+        <div>
+            <p style="margin: 0 0 10px 0; font-weight: bold; color: #333;">Productos:</p>
+            <ul style="margin: 0; padding-left: 20px;">
+                {% for detalle in orden.detalles.all %}
+                <li style="margin: 5px 0; color: #666; font-size: 0.9rem;">
+                    {{ detalle.cantidad }}x {{ detalle.producto.tituloDisco }} 
+                    {% if not detalle.producto.aceptaDevolucion %}
+                        <span style="color: #e74c3c; font-size: 0.8rem; font-style: italic;">(No acepta devolución)</span>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <!-- FORMULARIO -->
+    <form method="POST" action="{% url 'devolver_orden' orden.id %}">
+        {% csrf_token %}
+        
+        <div style="margin-bottom: 20px;">
+            <label for="motivo" style="display: block; margin-bottom: 8px; font-weight: bold; color: #333;">
+                ¿Por qué deseas devolver esta orden? <span style="color: #e74c3c;">*</span>
+            </label>
+            <textarea 
+                id="motivo" 
+                name="motivo" 
+                rows="5" 
+                required
+                placeholder="Ejemplo: Producto defectuoso, no cumple expectativas, cambio de opinión, etc."
+                style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.95rem; font-family: inherit; resize: vertical;"
+            ></textarea>
+        </div>
+
+        <!-- ADVERTENCIAS -->
+        <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
+            <p style="margin: 0; color: #856404; font-size: 0.9rem; line-height: 1.6;">
+                <strong>⚠️ Importante:</strong> Tu solicitud será revisada por nuestro equipo. 
+                {% if orden.detalles.all|length > 1 %}
+                    Si algunos productos no aceptan devolución, solo se procesarán los que sí lo permiten.
+                {% endif %}
+                El reembolso se procesará a la misma tarjeta de compra en 5-7 días hábiles.
+            </p>
+        </div>
+
+        <!-- BOTONES -->
+        <div style="display: flex; gap: 15px; justify-content: flex-end;">
+            <a href="{% url 'perfil' %}" style="padding: 12px 24px; background: #95a5a6; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; text-align: center;">
+                Cancelar
+            </a>
+            <button 
+                type="submit" 
+                class="btn" 
+                style="padding: 12px 24px; background: var(--acento); color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 1rem;"
+            >
+                📨 Enviar Solicitud
+            </button>
+        </div>
+    </form>
+
+</div>
+
+{% endblock %}

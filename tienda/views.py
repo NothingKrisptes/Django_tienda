@@ -1,3 +1,4 @@
+from urllib import request
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
@@ -92,25 +93,21 @@ def verCarrito(request):
     cuponCodigo = request.GET.get('cupon')
     cuponObj = None
     
-    # Lógica de Validación de Cupón
+    # Lógica de Validación de Cupón (igual que antes)
     if cuponCodigo:
         try:
             potential_cupon = CuponDescuento.objects.get(codigoCupon=cuponCodigo, activo=True)
             
-            # 1. Validar si ya lo usó (Solo usuarios logueados)
             if request.user.is_authenticated:
                 veces_usado = potential_cupon.usuarios_usados.filter(id=request.user.id).count()
                 if veces_usado >= potential_cupon.limite_uso:
                     messages.error(request, f"Ya utilizaste el cupón '{cuponCodigo}' anteriormente.")
-                    # Limpiamos cupón de sesión si existía
                     if 'cupon_aplicado' in request.session: del request.session['cupon_aplicado']
                 else:
-                    # Cupón válido
                     cuponObj = potential_cupon
-                    request.session['cupon_aplicado'] = cuponCodigo # Guardar para el checkout
+                    request.session['cupon_aplicado'] = cuponCodigo
                     messages.success(request, f"Cupón '{cuponCodigo}' aplicado correctamente.")
             else:
-                # Si no está logueado, permitimos ver el descuento pero pediremos login al pagar
                 cuponObj = potential_cupon
                 request.session['cupon_aplicado'] = cuponCodigo
                 
@@ -122,11 +119,12 @@ def verCarrito(request):
     
     return render(request, 'tienda/carrito.html', {
         'items': datosCompra['items'],
-        'subtotal': datosCompra['subtotal'],
-        'impuesto': datosCompra['impuesto'],
+        'subtotal': datosCompra['subtotal'],        # CON IVA
+        'impuesto': datosCompra['impuesto'],        # Desglose de IVA
+        'base_imponible': datosCompra['base_imponible'],  # Sin IVA
         'total': datosCompra['total'],
         'descuento': datosCompra['descuento'],
-        'cupon': cuponCodigo if cuponObj else None, # Solo devolvemos el código si fue válido
+        'cupon': cuponCodigo if cuponObj else None,
         'iva_porcentaje': datosCompra['iva_porcentaje']
     })
 
@@ -228,53 +226,58 @@ def vistaPerfil(request):
 @login_required
 def solicitarDevolucion(request, orden_id):
     """
-    Lógica tipo Amazon:
-    1. Cliente solicita.
-    2. Validamos tiempo (7 días).
-    3. Validamos si hay productos devolubles en la orden.
+    Cliente SOLICITA devolución (no se procesa automáticamente).
+    Staff debe aprobar/rechazar desde el dashboard.
     """
+    from .models import SolicitudDevolucion
+    
     orden = get_object_or_404(OrdenVenta, pk=orden_id, cliente=request.user)
     
-    # Validación 1: Tiempo
+    # Validación 1: Debe estar ENTREGADO
+    if orden.estadoEntrega != 'ENTREGADO':
+        messages.error(request, f"⚠️ No puedes solicitar devolución de un pedido que aún no ha sido entregado. Estado actual: {orden.get_estadoEntrega_display()}")
+        return redirect('perfil')
+    
+    # Validación 2: Tiempo (7 días desde la ENTREGA, no desde la compra)
     dias_pasados = (timezone.now() - orden.fechaCompra).days
     if dias_pasados > 7:
-        messages.error(request, f"El plazo de devolución expiró hace {dias_pasados - 7} días.")
+        messages.error(request, f"⏰ El plazo de devolución expiró hace {dias_pasados - 7} días.")
+        registrarLog(request.user, f"Intento devolución Orden #{orden.id}: Rechazado por tiempo")
         return redirect('perfil')
-
+    
+    # Validación 3: No está ya devuelta
     if orden.estadoOrden == 'DEVUELTO':
         messages.warning(request, "Esta orden ya fue devuelta.")
         return redirect('perfil')
-
-    # Validación 2: ¿Hay algo que devolver?
-    productos_reembolsados = 0
-    monto_reembolso = 0
     
-    for detalle in orden.detalles.all():
-        # AQUÍ ESTÁ LA CLAVE: Solo devolvemos si 'aceptaDevolucion' es True
-        if detalle.producto.aceptaDevolucion:
-            detalle.producto.stockDisponible += detalle.cantidad
-            detalle.producto.save()
-            productos_reembolsados += 1
-            monto_reembolso += detalle.precioUnitarioHistorico * detalle.cantidad
-    
-    if productos_reembolsados == 0:
-        messages.error(request, "Los productos de esta orden no aceptan devolución (Política de 'Venta Final').")
+    # Validación 4: No hay solicitud pendiente ya
+    if SolicitudDevolucion.objects.filter(orden=orden, estadoSolicitud='PENDIENTE').exists():
+        messages.warning(request, "Ya tienes una solicitud de devolución pendiente para esta orden.")
         return redirect('perfil')
-
-    # Marcamos la orden
-    orden.estadoOrden = 'DEVUELTO'
-    orden.motivoDevolucion = "Solicitud cliente"
-    orden.montoReembolsado = monto_reembolso # Guardamos cuánto se devolvió realmente
-    orden.save()
     
-    registrarLog(request.user, f"Devolución parcial/total Orden #{orden.id}")
+    # Validación 5: ¿Hay productos devolvibles?
+    tiene_devolvibles = any(d.producto.aceptaDevolucion for d in orden.detalles.all())
+    if not tiene_devolvibles:
+        messages.error(request, "Los productos de esta orden no aceptan devolución (Venta Final).")
+        registrarLog(request.user, f"Intento devolución Orden #{orden.id}: Rechazado (Política Venta Final)")
+        return redirect('perfil')
     
-    if productos_reembolsados < orden.detalles.count():
-        messages.warning(request, f"Devolución procesada parcialmente. Se reembolsaron ${monto_reembolso} (Algunos items no admiten cambios).")
-    else:
-        messages.success(request, f"Devolución exitosa. Se han reembolsado ${monto_reembolso} a tu tarjeta.")
+    # CREAR SOLICITUD (no procesar aún)
+    if request.method == 'POST':
+        motivo = request.POST.get('motivo', 'Sin especificar')
         
-    return redirect('perfil')
+        SolicitudDevolucion.objects.create(
+            orden=orden,
+            cliente=request.user,
+            motivoCliente=motivo
+        )
+        
+        registrarLog(request.user, f"Solicitó devolución Orden #{orden.id}")
+        messages.success(request, "✅ Solicitud enviada. El equipo de finanzas/bodega la revisará pronto.")
+        return redirect('perfil')
+    
+    # Renderizar formulario de motivo
+    return render(request, 'tienda/solicitar_devolucion.html', {'orden': orden})
 
 # --- ZONA STAFF (ADMIN, BODEGA, FINANZAS) ---
 
@@ -451,26 +454,177 @@ def gestionPedidosBodega(request):
 
 @user_passes_test(esBodeguero)
 def actualizarEstadoEnvio(request, orden_id):
+    """Actualiza estado de envío CON VALIDACIÓN IRREVERSIBLE"""
     if request.method == 'POST':
         orden = get_object_or_404(OrdenVenta, pk=orden_id)
-        nuevo_estado = request.POST.get('nuevoEstado')  # Verifica que el nombre coincida con el form
+        nuevo_estado = request.POST.get('nuevoEstado')
         
-        # VALIDACIÓN DEFENSIVA
-        if not nuevo_estado or nuevo_estado not in ['REVISION', 'PREPARANDO', 'EN_CAMINO', 'ENTREGADO']:
+        # ORDEN DE ESTADOS (no se puede retroceder)
+        ESTADOS_ORDEN = ['REVISION', 'PREPARANDO', 'EN_CAMINO', 'ENTREGADO']
+        
+        # Validar que el nuevo estado existe
+        if nuevo_estado not in ESTADOS_ORDEN:
             messages.error(request, "Estado inválido")
             return redirect('pedidos_bodega')
         
-        # Asignar el nuevo estado
-        orden.estadoEntrega = nuevo_estado
-        
+        # Validar que no retroceda
         try:
-            orden.save()
-            registrarLog(request.user, f"Cambió estado Orden #{orden.id} a {nuevo_estado}")
-            messages.success(request, f"✅ Orden #{orden.id} actualizada a {nuevo_estado}")
-        except Exception as e:
-            messages.error(request, f"Error al actualizar: {str(e)}")
+            indice_actual = ESTADOS_ORDEN.index(orden.estadoEntrega)
+            indice_nuevo = ESTADOS_ORDEN.index(nuevo_estado)
+            
+            if indice_nuevo < indice_actual:
+                messages.error(request, f"❌ No se puede retroceder de '{orden.get_estadoEntrega_display()}' a '{dict(orden.ESTADOS_ENVIO)[nuevo_estado]}'")
+                return redirect('pedidos_bodega')
+        except ValueError:
+            messages.error(request, "Error al validar estados")
+            return redirect('pedidos_bodega')
+        
+        # Actualizar
+        orden.estadoEntrega = nuevo_estado
+        orden.save()
+        
+        registrarLog(request.user, f"Cambió estado Orden #{orden.id} a {nuevo_estado}")
+        messages.success(request, f"✅ Orden #{orden.id} actualizada a {dict(orden.ESTADOS_ENVIO)[nuevo_estado]}")
         
     return redirect('pedidos_bodega')
+
+# --- GESTIÓN DE DEVOLUCIONES (BODEGA/FINANZAS) ---
+
+@user_passes_test(esBodeguero)
+def gestionDevolucionesBodega(request):
+    """Panel exclusivo de bodeguero"""
+    from .models import SolicitudDevolucion
+    
+    solicitudes_bodega = SolicitudDevolucion.objects.filter(estadoSolicitud='PENDIENTE')
+    historial_bodega = SolicitudDevolucion.objects.filter(
+        estadoSolicitud__in=['APROBADA_BODEGA', 'RECHAZADA_BODEGA', 'APROBADA_FINANZAS', 'RECHAZADA_FINANZAS']
+    )[:20]
+    
+    return render(request, 'tienda/admin_devoluciones_bodega.html', {
+        'solicitudes': solicitudes_bodega,
+        'historial': historial_bodega
+    })
+
+
+@user_passes_test(esFinanzas)
+def gestionDevolucionesFinanzas(request):
+    """Panel exclusivo de finanzas"""
+    from .models import SolicitudDevolucion
+    
+    solicitudes_finanzas = SolicitudDevolucion.objects.filter(estadoSolicitud='APROBADA_BODEGA')
+    historial_finanzas = SolicitudDevolucion.objects.filter(
+        estadoSolicitud__in=['APROBADA_FINANZAS', 'RECHAZADA_FINANZAS']
+    )[:20]
+    
+    return render(request, 'tienda/admin_devoluciones_finanzas.html', {
+        'solicitudes': solicitudes_finanzas,
+        'historial': historial_finanzas
+    })
+
+@user_passes_test(esBodeguero)
+def procesarDevolucionBodega(request, solicitud_id):
+    """PASO 1: Bodeguero verifica estado físico"""
+    from .models import SolicitudDevolucion
+    
+    if request.method != 'POST':
+        return redirect('devoluciones_bodega')
+    
+    try:
+        solicitud = SolicitudDevolucion.objects.get(pk=solicitud_id)
+        print(f"🔍 DEBUG: Solicitud encontrada - Estado actual: {solicitud.estadoSolicitud}")
+        
+        if solicitud.estadoSolicitud != 'PENDIENTE':
+            messages.error(request, f"Esta solicitud ya fue procesada (Estado: {solicitud.get_estadoSolicitud_display()})")
+            return redirect('devoluciones_bodega')
+            
+    except SolicitudDevolucion.DoesNotExist:
+        messages.error(request, f"No se encontró la solicitud #{solicitud_id}")
+        return redirect('devoluciones_bodega')
+    accion = request.POST.get('accion')
+    observaciones = request.POST.get('observaciones', '')
+    estado_fisico = request.POST.get('estado_fisico', '')
+    
+    if accion == 'aprobar':
+        # RESTAURAR STOCK (Bodeguero confirma que recibió el producto)
+        for detalle in solicitud.orden.detalles.all():
+            if detalle.producto.aceptaDevolucion:
+                detalle.producto.stockDisponible += detalle.cantidad
+                detalle.producto.save()
+        
+        solicitud.estadoSolicitud = 'APROBADA_BODEGA'
+        solicitud.revisadoPorBodega = request.user
+        solicitud.fechaRevisionBodega = timezone.now()
+        solicitud.observacionesBodega = observaciones
+        solicitud.estadoFisico = estado_fisico
+        solicitud.save()
+        
+        registrarLog(request.user, f"Bodega aprobó recepción física Solicitud #{solicitud.id}")
+        messages.success(request, f"✅ Producto recibido. Ahora Finanzas procesará el reembolso.")
+        
+    elif accion == 'rechazar':
+        solicitud.estadoSolicitud = 'RECHAZADA_BODEGA'
+        solicitud.revisadoPorBodega = request.user
+        solicitud.fechaRevisionBodega = timezone.now()
+        solicitud.observacionesBodega = observaciones
+        solicitud.save()
+        
+        registrarLog(request.user, f"Bodega rechazó devolución Solicitud #{solicitud.id}: {observaciones}")
+        messages.warning(request, f"❌ Devolución rechazada. Motivo: {observaciones}")
+    
+    return redirect('devoluciones_bodega')
+
+
+@user_passes_test(esFinanzas)
+def procesarDevolucionFinanzas(request, solicitud_id):
+    """PASO 2: Finanzas procesa el reembolso"""
+    from .models import SolicitudDevolucion
+    
+    if request.method != 'POST':
+        return redirect('devoluciones_finanzas')
+    
+    solicitud = get_object_or_404(SolicitudDevolucion, pk=solicitud_id, estadoSolicitud='APROBADA_BODEGA')
+    accion = request.POST.get('accion')
+    observaciones = request.POST.get('observaciones', '')
+    
+    if accion == 'aprobar':
+        # CALCULAR REEMBOLSO
+        monto_reembolso = 0
+        for detalle in solicitud.orden.detalles.all():
+            if detalle.producto.aceptaDevolucion:
+                monto_reembolso += detalle.precioUnitarioHistorico * detalle.cantidad
+        
+        solicitud.estadoSolicitud = 'APROBADA_FINANZAS'
+        solicitud.revisadoPorFinanzas = request.user
+        solicitud.fechaRevisionFinanzas = timezone.now()
+        solicitud.observacionesFinanzas = observaciones
+        solicitud.montoReembolsado = monto_reembolso
+        solicitud.save()
+        
+        # Actualizar orden
+        solicitud.orden.estadoOrden = 'DEVUELTO'
+        solicitud.orden.montoReembolsado = monto_reembolso
+        solicitud.orden.save()
+        
+        registrarLog(request.user, f"Finanzas procesó reembolso ${monto_reembolso} - Solicitud #{solicitud.id}")
+        messages.success(request, f"✅ Reembolso de ${monto_reembolso} procesado correctamente.")
+        
+    elif accion == 'rechazar':
+        # DEVOLVER STOCK (ya que se rechaza el reembolso)
+        for detalle in solicitud.orden.detalles.all():
+            if detalle.producto.aceptaDevolucion:
+                detalle.producto.stockDisponible -= detalle.cantidad
+                detalle.producto.save()
+        
+        solicitud.estadoSolicitud = 'RECHAZADA_FINANZAS'
+        solicitud.revisadoPorFinanzas = request.user
+        solicitud.fechaRevisionFinanzas = timezone.now()
+        solicitud.observacionesFinanzas = observaciones
+        solicitud.save()
+        
+        registrarLog(request.user, f"Finanzas rechazó reembolso Solicitud #{solicitud.id}")
+        messages.warning(request, f"❌ Reembolso rechazado. Stock restaurado.")
+    
+    return redirect('devoluciones_finanzas')
 
 # --- FINANZAS MEJORADO ---
 
@@ -493,50 +647,6 @@ def verFactura(request, orden_id):
     if orden.cliente != request.user and not request.user.is_staff:
         return redirect('inicio')
     return render(request, 'tienda/factura_simple.html', {'orden': orden})
-
-@login_required
-def solicitarDevolucion(request, orden_id):
-    orden = get_object_or_404(OrdenVenta, pk=orden_id, cliente=request.user)
-    
-    # 1. Validación de Tiempo
-    dias_pasados = (timezone.now() - orden.fechaCompra).days
-    if dias_pasados > 7:
-        registrarLog(request.user, f"Intento devolución Orden #{orden.id}: Rechazado por tiempo ({dias_pasados} días)")
-        messages.error(request, f"El plazo expiró hace {dias_pasados - 7} días.")
-        return redirect('perfil')
-
-    if orden.estadoOrden == 'DEVUELTO':
-        return redirect('perfil')
-
-    # 2. Proceso de devolución
-    productos_reembolsados = 0
-    monto_reembolso = 0
-    
-    for detalle in orden.detalles.all():
-        # Solo devolvemos si el producto tiene la casilla marcada
-        if detalle.producto.aceptaDevolucion:
-            detalle.producto.stockDisponible += detalle.cantidad
-            detalle.producto.save()
-            productos_reembolsados += 1
-            monto_reembolso += detalle.precioUnitarioHistorico * detalle.cantidad
-    
-    # CASO A: NINGÚN PRODUCTO SE PUDO DEVOLVER
-    if productos_reembolsados == 0:
-        registrarLog(request.user, f"Intento devolución Orden #{orden.id}: Rechazado (Política 'Venta Final')")
-        messages.error(request, "Este producto no acepta devoluciones (Venta Final).")
-        return redirect('perfil')
-
-    # CASO B: ÉXITO (PARCIAL O TOTAL)
-    orden.estadoOrden = 'DEVUELTO'
-    orden.motivoDevolucion = "Solicitud cliente"
-    orden.montoReembolsado = monto_reembolso
-    orden.save()
-    
-    # AQUI ESTÁ EL LOG DE ÉXITO QUE FALTABA
-    registrarLog(request.user, f"Devolución Aceptada Orden #{orden.id}. Stock restaurado. Monto ${monto_reembolso}")
-    
-    messages.success(request, f"Devolución procesada. Se han reembolsado ${monto_reembolso}.")
-    return redirect('perfil')
 
 # CUPONES
 @login_required

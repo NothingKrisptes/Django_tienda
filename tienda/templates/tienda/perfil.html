@@ -102,19 +102,21 @@
                             📄 Descargar Factura
                         </a>
 
-                        <!-- Botón Devolución (Solo si aplica) -->
-                        {% if orden.puedeDevolver and orden.estadoOrden != 'DEVUELTO' %}
+                        <!-- Botón Devolución (Solo si está ENTREGADO, no está devuelto y está dentro del plazo) -->
+                        {% if orden.estadoEntrega == 'ENTREGADO' and orden.estadoOrden != 'DEVUELTO' and orden.puedeDevolver %}
                             <a href="{% url 'devolver_orden' orden.id %}" 
-                            onclick="return confirm('¿Seguro que deseas devolver este pedido? El dinero será reembolsado a tu tarjeta.')"
-                            class="btn" style="background: #fff; color: #d32f2f; border: 1px solid #ef9a9a; font-size: 0.8rem;">
-                            ↩ Solicitar Devolución
+                               onclick="return confirm('¿Seguro que deseas devolver este pedido? El dinero será reembolsado a tu tarjeta.')"
+                               class="btn" style="background: #fff; color: #d32f2f; border: 1px solid #ef9a9a; font-size: 0.8rem;">
+                                ↩ Solicitar Devolución
                             </a>
+                        {% elif orden.estadoEntrega != 'ENTREGADO' and orden.estadoOrden != 'DEVUELTO' %}
+                            <span style="color: #999; font-size: 0.8rem; font-style: italic; padding: 8px 12px; border: 1px dashed #ddd; border-radius: 4px;">
+                                ⏳ Devolución disponible una vez entregado
+                            </span>
                         {% endif %}
                     </div>
                 </div>
             </div>
-            {% empty %}
-                <p>Aún no has realizado compras.</p>
             {% endfor %}
         {% else %}
             <div style="background: #fff; padding: 40px; text-align: center; border-radius: 8px;">

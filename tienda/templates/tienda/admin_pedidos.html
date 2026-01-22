@@ -15,7 +15,8 @@
         <select id="filtroEstado" onchange="filtrarPedidos()" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px;">
             <option value="">Todos</option>
             <option value="REVISION">En Revisión</option>
-            <option value="CAMINO">En Camino</option>
+            <option value="PREPARANDO">Preparando</option>
+            <option value="EN_CAMINO">En Camino</option>
             <option value="ENTREGADO">Entregado</option>
         </select>
     </div>
@@ -29,7 +30,7 @@
 <!-- LISTA DE PEDIDOS -->
 <div id="listaPedidos">
     {% for orden in ordenes %}
-    <div class="pedido-card" data-estado="{{ orden.estadoOrden }}" style="background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 15px; border-left: 5px solid {% if orden.estadoOrden == 'REVISION' %}#ff9800{% elif orden.estadoOrden == 'CAMINO' %}#2196f3{% else %}#4caf50{% endif %}; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+    <div class="pedido-card" data-estado="{{ orden.estadoEntrega }}" style="background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 15px; border-left: 5px solid {% if orden.estadoEntrega == 'REVISION' %}#ff9800{% elif orden.estadoEntrega == 'PREPARANDO' %}#9c27b0{% elif orden.estadoEntrega == 'EN_CAMINO' %}#2196f3{% else %}#4caf50{% endif %}; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
         
         <!-- ENCABEZADO DEL PEDIDO -->
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #eee;">
@@ -39,10 +40,11 @@
             </div>
             <div style="text-align: right;">
                 <span style="display: inline-block; padding: 6px 12px; border-radius: 20px; font-weight: bold; font-size: 0.85rem; 
-                    {% if orden.estadoOrden == 'REVISION' %}background: #fff3e0; color: #ff9800;
-                    {% elif orden.estadoOrden == 'CAMINO' %}background: #e3f2fd; color: #2196f3;
+                    {% if orden.estadoEntrega == 'REVISION' %}background: #fff3e0; color: #ff9800;
+                    {% elif orden.estadoEntrega == 'PREPARANDO' %}background: #f3e5f5; color: #9c27b0;
+                    {% elif orden.estadoEntrega == 'EN_CAMINO' %}background: #e3f2fd; color: #2196f3;
                     {% else %}background: #e8f5e9; color: #4caf50;{% endif %}">
-                    {{ orden.get_estadoOrden_display }}
+                    {{ orden.get_estadoEntrega_display }}
                 </span>
             </div>
         </div>
@@ -87,16 +89,33 @@
             </ul>
         </div>
 
-        <!-- ACTUALIZAR ESTADO -->
+        <!-- ACTUALIZAR ESTADO CON VALIDACIÓN -->
         <div style="display: flex; gap: 10px; align-items: center;">
-            <label style="font-weight: bold; color: #333;">Estado Actual:</label>
+            <label style="font-weight: bold; color: #333;">Cambiar Estado:</label>
             <form method="POST" action="{% url 'actualizar_envio' orden.id %}" style="display: flex; gap: 10px;">
                 {% csrf_token %}
                 <select name="nuevoEstado" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; background: #fff;">
-                     <option value="REVISION" {% if orden.estadoEntrega == 'REVISION' %}selected{% endif %}>En Revisión</option>
-                    <option value="PREPARANDO" {% if orden.estadoEntrega == 'PREPARANDO' %}selected{% endif %}>Preparando</option>
-                    <option value="EN_CAMINO" {% if orden.estadoEntrega == 'EN_CAMINO' %}selected{% endif %}>En Camino</option>
-                    <option value="ENTREGADO" {% if orden.estadoEntrega == 'ENTREGADO' %}selected{% endif %}>Entregado</option>
+                    {% if orden.estadoEntrega == 'REVISION' %}
+                        <option value="REVISION" selected>⏳ En Revisión</option>
+                        <option value="PREPARANDO">📦 Preparando</option>
+                        <option value="EN_CAMINO">🚚 En Camino</option>
+                        <option value="ENTREGADO">✅ Entregado</option>
+                    {% elif orden.estadoEntrega == 'PREPARANDO' %}
+                        <option value="REVISION" disabled style="color: #ccc;">⏳ En Revisión (Ya pasado)</option>
+                        <option value="PREPARANDO" selected>📦 Preparando</option>
+                        <option value="EN_CAMINO">🚚 En Camino</option>
+                        <option value="ENTREGADO">✅ Entregado</option>
+                    {% elif orden.estadoEntrega == 'EN_CAMINO' %}
+                        <option value="REVISION" disabled style="color: #ccc;">⏳ En Revisión (Ya pasado)</option>
+                        <option value="PREPARANDO" disabled style="color: #ccc;">📦 Preparando (Ya pasado)</option>
+                        <option value="EN_CAMINO" selected>🚚 En Camino</option>
+                        <option value="ENTREGADO">✅ Entregado</option>
+                    {% elif orden.estadoEntrega == 'ENTREGADO' %}
+                        <option value="REVISION" disabled style="color: #ccc;">⏳ En Revisión (Ya pasado)</option>
+                        <option value="PREPARANDO" disabled style="color: #ccc;">📦 Preparando (Ya pasado)</option>
+                        <option value="EN_CAMINO" disabled style="color: #ccc;">🚚 En Camino (Ya pasado)</option>
+                        <option value="ENTREGADO" selected>✅ Entregado</option>
+                    {% endif %}
                 </select>
                 <button type="submit" class="btn" style="background: var(--secundario); color: white; padding: 8px 16px; font-size: 0.9rem; border: none; border-radius: 4px; cursor: pointer;">
                     ✓ Actualizar

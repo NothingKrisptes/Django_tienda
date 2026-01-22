@@ -1,0 +1,199 @@
+{% extends 'tienda/base.html' %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 2px solid var(--secundario); padding-bottom: 20px;">
+    <div>
+        <h2 style="margin: 0; color: var(--secundario);">💰 Devoluciones - Panel de Finanzas</h2>
+        <p style="margin: 5px 0 0 0; color: #666; font-size: 0.9rem;">Procesa reembolsos de productos ya recibidos por bodega.</p>
+    </div>
+</div>
+
+<!-- SOLICITUDES PENDIENTES DE REEMBOLSO -->
+<div style="margin-bottom: 40px;">
+    <h3 style="color: #f39c12; margin-bottom: 20px;">💵 Pendientes de Reembolso ({{ solicitudes.count }})</h3>
+    
+    {% for solicitud in solicitudes %}
+    <div style="background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 15px; border-left: 5px solid #f39c12; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        
+        <!-- ENCABEZADO -->
+        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #eee;">
+            <div>
+                <h4 style="margin: 0; font-size: 1.1rem; color: var(--secundario);">
+                    Solicitud #{{ solicitud.id }} - Orden #{{ solicitud.orden.id }}
+                </h4>
+                <p style="margin: 5px 0 0 0; color: #666; font-size: 0.85rem;">
+                    Cliente: <strong>{{ solicitud.cliente.get_full_name|default:solicitud.cliente.username }}</strong>
+                    <br>Email: {{ solicitud.cliente.email }}
+                </p>
+                <p style="margin: 3px 0 0 0; color: #999; font-size: 0.85rem;">
+                    Solicitado: {{ solicitud.fechaSolicitud|date:'d/m/Y' }} | 
+                    Recibido por bodega: {{ solicitud.fechaRevisionBodega|date:'d/m/Y H:i' }}
+                </p>
+            </div>
+            <div style="text-align: right;">
+                <p style="margin: 0; font-size: 1.4rem; font-weight: bold; color: var(--acento);">
+                    ${{ solicitud.orden.totalFinal }}
+                </p>
+                <p style="margin: 5px 0 0 0; font-size: 0.85rem; color: #666;">
+                    Pago: {{ solicitud.orden.infoPago }}
+                </p>
+            </div>
+        </div>
+
+        <!-- VALIDACIÓN DE BODEGA -->
+        <div style="background: #d4edda; padding: 15px; border-radius: 6px; margin-bottom: 15px; border-left: 3px solid #28a745;">
+            <p style="margin: 0 0 5px 0; font-weight: bold; color: #155724;">✅ Validado por Bodega:</p>
+            <p style="margin: 0; color: #155724; font-size: 0.9rem;">
+                <strong>Estado físico:</strong> {{ solicitud.estadoFisico }}
+            </p>
+            {% if solicitud.observacionesBodega %}
+            <p style="margin: 5px 0 0 0; color: #155724; font-size: 0.9rem; font-style: italic;">
+                💬 "{{ solicitud.observacionesBodega }}"
+            </p>
+            {% endif %}
+            <p style="margin: 5px 0 0 0; color: #155724; font-size: 0.85rem;">
+                Revisado por: <strong>{{ solicitud.revisadoPorBodega.username }}</strong>
+            </p>
+        </div>
+
+        <!-- MOTIVO DEL CLIENTE -->
+        <div style="background: #fff3e0; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
+            <p style="margin: 0 0 5px 0; font-weight: bold; color: #e65100; font-size: 0.9rem;">💬 Motivo del cliente:</p>
+            <p style="margin: 0; color: #666; font-size: 0.85rem; font-style: italic;">
+                "{{ solicitud.motivoCliente }}"
+            </p>
+        </div>
+
+        <!-- PRODUCTOS A REEMBOLSAR -->
+        <div style="margin-bottom: 15px;">
+            <p style="margin: 0 0 10px 0; font-weight: bold; color: #333;">💵 Productos a reembolsar:</p>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #f5f5f5;">
+                        <th style="padding: 8px; text-align: left; border-bottom: 2px solid #ddd; font-size: 0.85rem;">Producto</th>
+                        <th style="padding: 8px; text-align: center; border-bottom: 2px solid #ddd; font-size: 0.85rem;">Cant.</th>
+                        <th style="padding: 8px; text-align: right; border-bottom: 2px solid #ddd; font-size: 0.85rem;">P. Unit.</th>
+                        <th style="padding: 8px; text-align: right; border-bottom: 2px solid #ddd; font-size: 0.85rem;">Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for detalle in solicitud.orden.detalles.all %}
+                    <tr style="{% if not detalle.producto.aceptaDevolucion %}opacity: 0.5;{% endif %}">
+                        <td style="padding: 8px; border-bottom: 1px solid #eee; font-size: 0.9rem;">
+                            {{ detalle.producto.tituloDisco }}
+                            {% if not detalle.producto.aceptaDevolucion %}
+                                <span style="color: #e74c3c; font-size: 0.75rem; font-weight: bold;">(NO REEMBOLSABLE)</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 8px; text-align: center; border-bottom: 1px solid #eee; font-size: 0.9rem;">{{ detalle.cantidad }}</td>
+                        <td style="padding: 8px; text-align: right; border-bottom: 1px solid #eee; font-size: 0.9rem;">${{ detalle.precioUnitarioHistorico }}</td>
+                        <td style="padding: 8px; text-align: right; border-bottom: 1px solid #eee; font-size: 0.9rem; font-weight: bold;">
+                            {% if detalle.producto.aceptaDevolucion %}
+                                ${{ detalle.precioUnitarioHistorico|floatformat:2 }}
+                            {% else %}
+                                <span style="color: #999;">$0.00</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- CÁLCULO DE REEMBOLSO -->
+        <div style="background: #e8f5e9; padding: 12px; border-radius: 6px; margin-bottom: 15px; text-align: right;">
+            <p style="margin: 0; font-size: 1.1rem; color: #2e7d32;">
+                <strong>Total a reembolsar: </strong>
+                <span style="font-size: 1.3rem; font-weight: bold;">
+                    ${% widthratio solicitud.orden.totalFinal 1 1 %}
+                </span>
+            </p>
+        </div>
+
+        <!-- FORMULARIO DE DECISIÓN -->
+        <form method="POST" action="{% url 'procesar_devolucion_finanzas' solicitud.id %}" style="background: #f5f5f5; padding: 15px; border-radius: 6px;">
+            {% csrf_token %}
+            
+            <div style="margin-bottom: 15px;">
+                <label for="obs_fin_{{ solicitud.id }}" style="display: block; margin-bottom: 8px; font-weight: bold; color: #333;">
+                    Observaciones para el cliente (opcional):
+                </label>
+                <textarea 
+                    id="obs_fin_{{ solicitud.id }}" 
+                    name="observaciones" 
+                    rows="2" 
+                    placeholder="Nota sobre el reembolso, tiempo estimado, etc..."
+                    style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; font-family: inherit;"
+                ></textarea>
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <button 
+                    type="submit" 
+                    name="accion" 
+                    value="aprobar" 
+                    style="flex: 1; padding: 12px 20px; background: #27ae60; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 0.95rem;"
+                >
+                    ✅ Aprobar Reembolso
+                </button>
+                <button 
+                    type="submit" 
+                    name="accion" 
+                    value="rechazar" 
+                    style="flex: 1; padding: 12px 20px; background: #e74c3c; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 0.95rem;"
+                >
+                    ❌ Rechazar Reembolso
+                </button>
+            </div>
+        </form>
+
+    </div>
+    {% empty %}
+    <div style="text-align: center; padding: 40px; background: #fff; border-radius: 8px; color: #999;">
+        <p style="font-size: 1.1rem; margin: 0;">✅ No hay reembolsos pendientes.</p>
+        <p style="margin: 10px 0 0 0; font-size: 0.9rem;">Todos los productos recibidos por bodega han sido procesados.</p>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- HISTORIAL DE REEMBOLSOS -->
+<div>
+    <h3 style="color: #666; margin-bottom: 20px;">📜 Historial de Reembolsos</h3>
+    
+    {% for solicitud in historial %}
+    <div style="background: #fff; padding: 15px; border-radius: 6px; margin-bottom: 10px; border-left: 3px solid 
+        {% if solicitud.estadoSolicitud == 'APROBADA_FINANZAS' %}#27ae60{% else %}#e74c3c{% endif %}; opacity: 0.8;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <strong>Solicitud #{{ solicitud.id }}</strong> - Orden #{{ solicitud.orden.id }}
+                <span style="margin-left: 10px; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: bold;
+                    {% if solicitud.estadoSolicitud == 'APROBADA_FINANZAS' %}background: #d4edda; color: #155724;
+                    {% else %}background: #f8d7da; color: #721c24;{% endif %}">
+                    {{ solicitud.get_estadoSolicitud_display }}
+                </span>
+            </div>
+            <div style="text-align: right;">
+                {% if solicitud.estadoSolicitud == 'APROBADA_FINANZAS' %}
+                <p style="margin: 0; font-weight: bold; color: #27ae60; font-size: 1.1rem;">
+                    ${{ solicitud.montoReembolsado }}
+                </p>
+                {% endif %}
+                <p style="margin: 3px 0 0 0; font-size: 0.85rem; color: #999;">
+                    {{ solicitud.fechaRevisionFinanzas|date:'d/m/Y H:i' }}
+                </p>
+            </div>
+        </div>
+        {% if solicitud.observacionesFinanzas %}
+        <p style="margin: 8px 0 0 0; font-size: 0.85rem; color: #666; font-style: italic;">
+            💬 "{{ solicitud.observacionesFinanzas }}"
+        </p>
+        {% endif %}
+    </div>
+    {% empty %}
+    <div style="text-align: center; padding: 30px; background: #fff; border-radius: 8px; color: #999;">
+        <p style="margin: 0;">Sin historial de reembolsos.</p>
+    </div>
+    {% endfor %}
+</div>
+
+{% endblock %}

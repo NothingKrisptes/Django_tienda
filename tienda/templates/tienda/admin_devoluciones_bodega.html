@@ -1,0 +1,173 @@
+{% extends 'tienda/base.html' %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 2px solid var(--secundario); padding-bottom: 20px;">
+    <div>
+        <h2 style="margin: 0; color: var(--secundario);">📦 Devoluciones - Panel de Bodega</h2>
+        <p style="margin: 5px 0 0 0; color: #666; font-size: 0.9rem;">Verifica el estado físico de los productos devueltos.</p>
+    </div>
+</div>
+
+<!-- SOLICITUDES PENDIENTES DE RECEPCIÓN -->
+<div style="margin-bottom: 40px;">
+    <h3 style="color: #ff9800; margin-bottom: 20px;">📥 Pendientes de Recepción ({{ solicitudes.count }})</h3>
+    
+    {% for solicitud in solicitudes %}
+    <div style="background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 15px; border-left: 5px solid #ff9800; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        
+        <!-- ENCABEZADO -->
+        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #eee;">
+            <div>
+                <h4 style="margin: 0; font-size: 1.1rem; color: var(--secundario);">
+                    Solicitud #{{ solicitud.id }} - Orden #{{ solicitud.orden.id }}
+                </h4>
+                <p style="margin: 5px 0 0 0; color: #666; font-size: 0.85rem;">
+                    Cliente: <strong>{{ solicitud.cliente.get_full_name|default:solicitud.cliente.username }}</strong>
+                </p>
+                <p style="margin: 3px 0 0 0; color: #999; font-size: 0.85rem;">
+                    Solicitado: {{ solicitud.fechaSolicitud|date:'d/m/Y H:i' }}
+                </p>
+            </div>
+            <div style="text-align: right;">
+                <p style="margin: 0; font-size: 1.2rem; font-weight: bold; color: var(--acento);">
+                    ${{ solicitud.orden.totalFinal }}
+                </p>
+                <p style="margin: 5px 0 0 0; font-size: 0.8rem; color: #999;">
+                    {% if solicitud.orden.tipoEntrega == 'DOMICILIO' %}
+                        🚚 Entrega a domicilio
+                    {% else %}
+                        🏪 Retiro en tienda
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+
+        <!-- MOTIVO DEL CLIENTE -->
+        <div style="background: #fff3e0; padding: 15px; border-radius: 6px; margin-bottom: 15px; border-left: 3px solid #ff9800;">
+            <p style="margin: 0 0 8px 0; font-weight: bold; color: #e65100;">💬 Motivo del cliente:</p>
+            <p style="margin: 0; color: #666; font-size: 0.9rem; font-style: italic;">
+                "{{ solicitud.motivoCliente }}"
+            </p>
+        </div>
+
+        <!-- PRODUCTOS A RECIBIR -->
+        <div style="margin-bottom: 15px;">
+            <p style="margin: 0 0 10px 0; font-weight: bold; color: #333;">📦 Productos a recibir:</p>
+            <ul style="margin: 0; padding-left: 20px;">
+                {% for detalle in solicitud.orden.detalles.all %}
+                <li style="margin: 5px 0; color: #666; font-size: 0.9rem;">
+                    <strong>{{ detalle.cantidad }}x</strong> {{ detalle.producto.tituloDisco }}
+                    {% if not detalle.producto.aceptaDevolucion %}
+                        <span style="color: #e74c3c; font-size: 0.8rem; font-weight: bold;">(⚠️ Venta Final)</span>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <!-- FORMULARIO DE RECEPCIÓN -->
+        <form method="POST" action="{% url 'procesar_devolucion_bodega' solicitud.id %}" style="background: #f5f5f5; padding: 15px; border-radius: 6px;">
+            {% csrf_token %}
+            
+            <div style="margin-bottom: 15px;">
+                <label for="estado_fisico_{{ solicitud.id }}" style="display: block; margin-bottom: 8px; font-weight: bold; color: #333;">
+                    Estado físico del producto: <span style="color: #e74c3c;">*</span>
+                </label>
+                <select 
+                    id="estado_fisico_{{ solicitud.id }}" 
+                    name="estado_fisico" 
+                    required
+                    style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem;"
+                >
+                    <option value="">-- Selecciona --</option>
+                    <option value="Perfecto estado">✅ Perfecto estado (sin uso)</option>
+                    <option value="Buen estado">👍 Buen estado (uso mínimo)</option>
+                    <option value="Usado pero funcional">⚠️ Usado pero funcional</option>
+                    <option value="Dañado">❌ Dañado / Defectuoso</option>
+                    <option value="Incompleto">❌ Incompleto (faltan piezas)</option>
+                </select>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <label for="obs_{{ solicitud.id }}" style="display: block; margin-bottom: 8px; font-weight: bold; color: #333;">
+                    Observaciones (opcional):
+                </label>
+                <textarea 
+                    id="obs_{{ solicitud.id }}" 
+                    name="observaciones" 
+                    rows="2" 
+                    placeholder="Detalles adicionales sobre el estado del producto..."
+                    style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; font-family: inherit;"
+                ></textarea>
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <button 
+                    type="submit" 
+                    name="accion" 
+                    value="aprobar" 
+                    style="flex: 1; padding: 12px 20px; background: #27ae60; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 0.95rem;"
+                >
+                    ✅ Recibir y Pasar a Finanzas
+                </button>
+                <button 
+                    type="submit" 
+                    name="accion" 
+                    value="rechazar" 
+                    style="flex: 1; padding: 12px 20px; background: #e74c3c; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 0.95rem;"
+                >
+                    ❌ Rechazar Recepción
+                </button>
+            </div>
+        </form>
+
+    </div>
+    {% empty %}
+    <div style="text-align: center; padding: 40px; background: #fff; border-radius: 8px; color: #999;">
+        <p style="font-size: 1.1rem; margin: 0;">✅ No hay productos pendientes de recibir.</p>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- HISTORIAL -->
+<div>
+    <h3 style="color: #666; margin-bottom: 20px;">📜 Historial de Recepciones</h3>
+    
+    {% for solicitud in historial %}
+    <div style="background: #fff; padding: 15px; border-radius: 6px; margin-bottom: 10px; border-left: 3px solid 
+        {% if solicitud.estadoSolicitud == 'RECHAZADA_BODEGA' %}#e74c3c
+        {% elif solicitud.estadoSolicitud == 'APROBADA_BODEGA' %}#f39c12
+        {% else %}#27ae60{% endif %}; opacity: 0.8;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <strong>Solicitud #{{ solicitud.id }}</strong> - Orden #{{ solicitud.orden.id }}
+                <span style="margin-left: 10px; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: bold;
+                    {% if solicitud.estadoSolicitud == 'RECHAZADA_BODEGA' %}background: #f8d7da; color: #721c24;
+                    {% elif solicitud.estadoSolicitud == 'APROBADA_BODEGA' %}background: #fff3cd; color: #856404;
+                    {% else %}background: #d4edda; color: #155724;{% endif %}">
+                    {{ solicitud.get_estadoSolicitud_display }}
+                </span>
+            </div>
+            <div style="text-align: right; font-size: 0.85rem; color: #999;">
+                {{ solicitud.fechaRevisionBodega|date:'d/m/Y H:i' }}
+            </div>
+        </div>
+        {% if solicitud.estadoFisico %}
+        <p style="margin: 8px 0 0 0; font-size: 0.85rem; color: #666;">
+            📦 Estado: <strong>{{ solicitud.estadoFisico }}</strong>
+        </p>
+        {% endif %}
+        {% if solicitud.observacionesBodega %}
+        <p style="margin: 5px 0 0 0; font-size: 0.85rem; color: #666; font-style: italic;">
+            💬 "{{ solicitud.observacionesBodega }}"
+        </p>
+        {% endif %}
+    </div>
+    {% empty %}
+    <div style="text-align: center; padding: 30px; background: #fff; border-radius: 8px; color: #999;">
+        <p style="margin: 0;">Sin historial.</p>
+    </div>
+    {% endfor %}
+</div>
+
+{% endblock %}
